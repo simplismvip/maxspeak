@@ -315,10 +315,11 @@ export function filterVoices(
     if (language && v.language !== language) return false;
     if (search) {
       const q = search.toLowerCase();
-      const matchName = v.name.toLowerCase().includes(q);
-      const matchId = v.id.toLowerCase().includes(q);
-      const matchTags = v.tags?.some(t => t.toLowerCase().includes(q));
-      const matchDesc = v.description.toLowerCase().includes(q);
+      const s = (val: unknown) => typeof val === 'string' ? val.toLowerCase() : '';
+      const matchName = s(v.name).includes(q);
+      const matchId = s(v.id).includes(q);
+      const matchTags = v.tags?.some(t => s(t).includes(q));
+      const matchDesc = s(v.description).includes(q);
       if (!matchName && !matchId && !matchTags && !matchDesc) return false;
     }
     if (gender && v.gender !== gender) return false;

@@ -75,14 +75,14 @@ export function VoiceLibrary() {
       const rawVoices: any[] = data.voice_list || [];
       // Convert MiniMax API voice format to PresetVoice format
       const converted = rawVoices.map((v: any) => ({
-        id: v.voice_id,
-        name: v.voice_name || v.voice_id,
-        language: v.language || 'Unknown',
-        languageLabel: v.language || 'Unknown',
-        gender: v.gender || 'neutral',
-        description: v.description || '',
+        id: String(v.voice_id || ''),
+        name: String(v.voice_name || v.voice_id || ''),
+        language: String(v.language || 'Unknown'),
+        languageLabel: String(v.language || 'Unknown'),
+        gender: (v.gender || 'neutral') as 'male' | 'female' | 'neutral',
+        description: typeof v.description === 'string' ? v.description : '',
         tags: v.voice_type === 'voice_cloning' ? ['复刻'] : v.voice_type === 'voice_generation' ? ['设计'] : ['系统'],
-        demoAudio: v.demo_audio,
+        demoAudio: typeof v.demo_audio === 'string' ? v.demo_audio : undefined,
         voiceType: v.voice_type,
       }));
       setSyncedVoices(converted);
