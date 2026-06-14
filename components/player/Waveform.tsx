@@ -32,7 +32,7 @@ export function Waveform({ mini = false, className }: WaveformProps) {
 
       if (!data || (!isPlaying && !isStreaming)) {
         // Draw idle flat line
-        ctx.fillStyle = 'rgb(var(--muted-foreground) / 0.2)';
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.2)'; // slate-400 at 20% opacity (CSS var not available in canvas)
         const barCount = mini ? 8 : 32;
         const barWidth = (width / barCount) - 1;
         for (let i = 0; i < barCount; i++) {

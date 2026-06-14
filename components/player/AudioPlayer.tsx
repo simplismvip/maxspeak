@@ -27,6 +27,8 @@ export function AudioPlayer() {
     const url = player.audioUrl;
     if (!audio || !url) return;
     if (urlRef.current === url) return; // already loaded
+    // Revoke previous blob URL to prevent memory leak
+    if (urlRef.current?.startsWith('blob:')) URL.revokeObjectURL(urlRef.current);
     urlRef.current = url;
     setAudioError(null);
 

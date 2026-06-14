@@ -18,6 +18,8 @@ export function VoiceLibrary() {
   const [source, setSource] = useState<VoiceSource>('system');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [syncedVoices, setSyncedVoices] = useState<any[]>([]);
+  const [hasSynced, setHasSynced] = useState(false);
 
   // Load custom voices
   const clonedVoices = useMemo(() => {
@@ -32,10 +34,14 @@ export function VoiceLibrary() {
     catch { return []; }
   }, []);
 
-  // Filter system voices
+  // Filter system voices (merge preset + synced from API)
+  const allSystemVoices = useMemo(
+    () => hasSynced ? [...PRESET_VOICES, ...syncedVoices] : PRESET_VOICES,
+    [hasSynced, syncedVoices]
+  );
   const filteredSystem = useMemo(
-    () => filterVoices(PRESET_VOICES, language || undefined, search || undefined, gender || undefined),
-    [language, search, gender]
+    () => filterVoices(allSystemVoices, language || undefined, search || undefined, gender || undefined),
+    [allSystemVoices, language, search, gender]
   );
 
   const groupedSystem = useMemo(() => groupVoicesByLanguage(filteredSystem), [filteredSystem]);
@@ -66,8 +72,22 @@ export function VoiceLibrary() {
       }
 
       const data = await res.json();
-      const count = data.voice_list?.length || 0;
-      setSyncMessage(`✅ 成功获取 ${count} 个音色（系统 + 自定义）。已合并到本地库。`);
+      const rawVoices: any[] = data.voice_list || [];
+      // Convert MiniMax API voice format to PresetVoice format
+      const converted = rawVoices.map((v: any) => ({
+        id: v.voice_id,
+        name: v.voice_name || v.voice_id,
+        language: v.language || 'Unknown',
+        languageLabel: v.language || 'Unknown',
+        gender: v.gender || 'neutral',
+        description: v.description || '',
+        tags: v.voice_type === 'voice_cloning' ? ['复刻'] : v.voice_type === 'voice_generation' ? ['设计'] : ['系统'],
+        demoAudio: v.demo_audio,
+        voiceType: v.voice_type,
+      }));
+      setSyncedVoices(converted);
+      setHasSynced(true);
+      setSyncMessage(`✅ 成功获取 ${converted.length} 个音色（系统 + 自定义）。已合并到本地库。`);
     } catch (err) {
       setSyncMessage(`❌ 同步失败: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
@@ -235,7 +255,7 @@ export function VoiceLibrary() {
       {/* Source Tabs */}
       <div className="flex gap-1 mb-4 p-0.5 bg-[rgb(var(--muted))] rounded-lg w-fit">
         {[
-          { id: 'system' as VoiceSource, label: '系统音色', count: PRESET_VOICES.length },
+          { id: 'system' as VoiceSource, label: '系统音色', count: allSystemVoices.length },
           { id: 'cloned' as VoiceSource, label: '复刻音色', count: clonedVoices.length },
           { id: 'designed' as VoiceSource, label: '设计音色', count: designedVoices.length },
         ].map((tab) => (

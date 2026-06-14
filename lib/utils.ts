@@ -77,14 +77,6 @@ export function validateVoiceId(id: string): { valid: boolean; message: string }
   return { valid: true, message: '' };
 }
 
-/** Convert a hex string to ArrayBuffer */
-export function hexToArrayBuffer(hex: string): ArrayBuffer {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-  }
-  return bytes.buffer;
-}
 
 /** Sleep for ms */
 export function sleep(ms: number): Promise<void> {

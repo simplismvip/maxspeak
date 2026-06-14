@@ -80,7 +80,12 @@ export function TextToSpeechPanel() {
       if (!res.ok) return;
       const blob = await res.blob();
       const audioUrl = URL.createObjectURL(blob);
-      if (audioUrl) { const a = new Audio(audioUrl); a.play().catch(() => {}); }
+      if (audioUrl) {
+        const a = new Audio(audioUrl);
+        a.onended = () => URL.revokeObjectURL(audioUrl);
+        a.onerror = () => URL.revokeObjectURL(audioUrl);
+        a.play().catch(() => {});
+      }
     } catch { /* preview failed silently — non-critical */ } finally { setPreviewLoading(null); }
   }, [settings]);
 
@@ -189,6 +194,9 @@ export function TextToSpeechPanel() {
         }
 
         const blob = await res.blob();
+        // Revoke previous blob URL to prevent memory leak
+        const prevUrl = usePlayerStore.getState().audioUrl;
+        if (prevUrl?.startsWith('blob:')) URL.revokeObjectURL(prevUrl);
         const blobUrl = URL.createObjectURL(blob);
         const actualFmt = res.headers.get('x-audio-format') || tts.audioFormat;
         const fileName = `tts-${Date.now()}.${formatToExtension(actualFmt)}`;
