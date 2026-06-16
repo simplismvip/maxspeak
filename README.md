@@ -78,11 +78,11 @@ npx wrangler pages deploy .vercel/output/static
   │  ◄── binary audio blob ───┤                              │
   │  (Content-Type: audio/*)  │                              │
   │                           │                              │
-  ▼                   API Key 全程仅服务端可见                  ▼
+  ▼                   API Key 由浏览器本地保存并发送到本站代理        ▼
  [blob URL → <audio>]                                    [300+ 音色]
 ```
 
-- **API Key 不会泄露到浏览器** — 所有 MiniMax 请求经 Next.js 服务端路由代理
+- **本地 API Key 模式** — API Key 由用户在浏览器设置页输入，保存在本机 `localStorage`，请求 MiniMax 时会通过本站 Next.js API Routes 代理转发；请只在可信部署上使用
 - **服务端格式检测** — 自动识别 5 种音频容器（ID3/MP3、RIFF/WAV、fLaC/FLAC、OggS/OGG、FFxx/MPEG），裸 PCM 自动封装 WAV 头
 - **二进制返回** — 服务端始终返回 `Content-Type: audio/*`，客户端 `res.blob()` 单一路径，无 JSON 分支
 - 流式合成使用 SSE 透传 + 实时 chunk 解码

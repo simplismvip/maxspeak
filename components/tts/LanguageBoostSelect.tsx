@@ -23,7 +23,7 @@ export function LanguageBoostSelect() {
         ))}
       </select>
       <p className="text-[10px] text-[rgb(var(--muted-foreground))] mt-1">
-        选择对应语言可获得更好的合成效果。选择"自动检测"由系统判断。
+        选择对应语言可获得更好的合成效果。选择&quot;自动检测&quot;由系统判断。
       </p>
     </div>
   );

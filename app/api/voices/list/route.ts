@@ -1,4 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  fetchWithTimeout,
+  getMiniMaxBaseUrl,
+  isAbortError,
+  MAX_UPSTREAM_ERROR_BYTES,
+  readTextLimited,
+  UPSTREAM_TIMEOUT_MS,
+} from '@/lib/server/security';
 
 /**
  * POST /api/voices/list
@@ -7,10 +15,16 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const apiKey = request.headers.get('x-api-key');
-    const baseUrl = request.headers.get('x-base-url') || 'https://api.minimax.io';
 
     if (!apiKey) {
       return NextResponse.json({ error: 'API Key is required.' }, { status: 401 });
+    }
+
+    let baseUrl: string;
+    try {
+      baseUrl = getMiniMaxBaseUrl(request);
+    } catch {
+      return NextResponse.json({ error: 'Invalid x-base-url' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -25,16 +39,19 @@ export async function POST(request: NextRequest) {
     console.log('[get_voice] Request:', JSON.stringify(payload));
     console.log('[get_voice] Base URL:', baseUrl);
 
-    const response = await fetch(`${baseUrl}/v1/get_voice`, {
+    const response = await fetchWithTimeout(`${baseUrl}/v1/get_voice`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-    });
+    }, UPSTREAM_TIMEOUT_MS);
 
-    const rawText = await response.text();
+    const rawText = await readTextLimited(
+      response,
+      response.ok ? undefined : MAX_UPSTREAM_ERROR_BYTES
+    );
 
     if (!response.ok) {
       console.error('[get_voice] Error:', response.status, rawText.slice(0, 500));
@@ -96,6 +113,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[get_voice] Exception:', error);
+    if (isAbortError(error)) {
+      return NextResponse.json({ error: 'MiniMax API request timed out' }, { status: 504 });
+    }
+    if (error instanceof Error && error.message === 'Response too large') {
+      return NextResponse.json({ error: 'MiniMax response too large' }, { status: 502 });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal error' },
       { status: 500 }

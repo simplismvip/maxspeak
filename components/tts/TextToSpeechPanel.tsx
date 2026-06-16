@@ -64,6 +64,8 @@ export function TextToSpeechPanel() {
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
 
   const shouldStream = tts.stream || (settings.autoStream && tts.text.length > PARAM_RANGES.streamingTextThreshold);
+  const isTextOverLimit = tts.text.length > PARAM_RANGES.textMaxLength;
+  const textLimitError = `文本长度超过限制：当前 ${tts.text.length} 字符，最多 ${PARAM_RANGES.textMaxLength} 字符。请缩短文本后再合成。`;
 
   // Preview voice from selector
   const handlePreviewVoice = useCallback(async (voiceId: string) => {
@@ -92,6 +94,10 @@ export function TextToSpeechPanel() {
   const handleSynthesize = useCallback(async () => {
     if (!tts.text.trim()) {
       setError('请输入需要合成的文本');
+      return;
+    }
+    if (isTextOverLimit) {
+      setError(textLimitError);
       return;
     }
 
@@ -161,6 +167,9 @@ export function TextToSpeechPanel() {
           throw new Error(errData.error || 'Stream API returned JSON instead of SSE');
         }
 
+        const actualFormat = response.headers.get('x-audio-format') || tts.audioFormat;
+        const actualSampleRate = Number(response.headers.get('x-audio-sample-rate')) || tts.sampleRate;
+
         await streamAndPlay(
           response,
           () => {
@@ -171,7 +180,9 @@ export function TextToSpeechPanel() {
             setError(err.message);
             player.setStreaming(false);
             player.setLoading(false);
-          }
+          },
+          actualFormat,
+          actualSampleRate
         );
       } else {
         // -------- SYNCHRONOUS PATH --------
@@ -225,7 +236,7 @@ export function TextToSpeechPanel() {
     } finally {
       setIsSynthesizing(false);
     }
-  }, [tts.text, tts.model, tts.voiceId, tts.speed, tts.volume, tts.pitch, tts.emotion, tts.audioFormat, tts.sampleRate, tts.bitrate, tts.channel, tts.languageBoost, tts.voiceModify, tts.pronunciationEntries, shouldStream, settings, player]);
+  }, [tts.text, tts.model, tts.voiceId, tts.speed, tts.volume, tts.pitch, tts.emotion, tts.audioFormat, tts.sampleRate, tts.bitrate, tts.channel, tts.languageBoost, tts.voiceModify, tts.pronunciationEntries, shouldStream, isTextOverLimit, textLimitError, settings, player]);
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -241,7 +252,7 @@ export function TextToSpeechPanel() {
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleSynthesize}
-              disabled={isSynthesizing || !tts.text.trim()}
+              disabled={isSynthesizing || !tts.text.trim() || isTextOverLimit}
               className={cn(
                 'btn-primary flex items-center gap-2 px-6 py-2.5 text-base',
                 isSynthesizing && 'animate-pulse'
@@ -264,9 +275,14 @@ export function TextToSpeechPanel() {
             </button>
 
             {/* Cost Estimate */}
-            {tts.text.trim() && !isSynthesizing && (
+            {tts.text.trim() && !isSynthesizing && !isTextOverLimit && (
               <span className="text-xs text-[rgb(var(--muted-foreground))]">
                 预估费用: {estimateCost(tts.text, tts.model, PRICING)}
+              </span>
+            )}
+            {isTextOverLimit && !isSynthesizing && (
+              <span className="text-xs text-red-500">
+                {textLimitError}
               </span>
             )}
 

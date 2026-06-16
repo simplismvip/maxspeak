@@ -78,11 +78,11 @@ Browser                Next.js Server                   MiniMax API
   │  ◄── binary audio blob ─┤                               │
   │  (Content-Type: audio/*)│                               │
   │                         │                               │
-  ▼                   API Key stays server-side               ▼
+  ▼                   API key is stored locally and sent to the app proxy ▼
  [blob URL → <audio>]                                   [300+ voices]
 ```
 
-- **API Key never reaches the browser** — all MiniMax requests are proxied through Next.js server routes
+- **Local API key mode** — users paste their MiniMax API key in the browser settings panel; it is stored in local `localStorage` and forwarded through this app's Next.js API Routes, so only use trusted deployments
 - **Server-side format detection** — auto-detects 5 container formats (ID3/MP3, RIFF/WAV, fLaC/FLAC, OggS/OGG, FFxx/MPEG); bare PCM auto-wrapped in WAV
 - **Binary response** — server always returns `Content-Type: audio/*`, client uses `res.blob()` single path
 - Streaming uses SSE passthrough with real-time chunk decoding

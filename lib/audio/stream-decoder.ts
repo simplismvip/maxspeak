@@ -135,6 +135,21 @@ async function tryDecodeChunk(
   }
 }
 
+interface MiniMaxSSEEvent {
+  base_resp?: {
+    status_code?: number;
+    status_msg?: string;
+  };
+}
+
+function assertSuccessfulSSEEvent(parsed: MiniMaxSSEEvent): void {
+  if (parsed.base_resp && parsed.base_resp.status_code !== 0) {
+    const statusCode = parsed.base_resp.status_code;
+    const statusMsg = parsed.base_resp.status_msg || 'Stream error';
+    throw new Error(`Stream error ${statusCode}: ${statusMsg}`);
+  }
+}
+
 /**
  * Process a streaming SSE response
  */
@@ -177,13 +192,7 @@ export async function processStreamResponse(
           try {
             const parsed = JSON.parse(jsonStr);
 
-            // Check for error
-            if (parsed.base_resp && parsed.base_resp.status_code !== 0) {
-              const msg = parsed.base_resp?.status_msg || 'Stream error';
-              console.error('SSE event error:', msg, parsed);
-              // Don't throw — some chunks may succeed after errors
-              continue;
-            }
+            assertSuccessfulSSEEvent(parsed);
 
             // Extract audio data
             if (parsed.data?.audio) {
@@ -201,8 +210,11 @@ export async function processStreamResponse(
               }
             }
           } catch (e) {
-            // Malformed JSON — skip
-            console.warn('Failed to parse SSE event:', e);
+            if (e instanceof SyntaxError) {
+              console.warn('Failed to parse SSE event:', e);
+              continue;
+            }
+            throw e;
           }
         }
 
@@ -218,6 +230,7 @@ export async function processStreamResponse(
           for (const jsonStr of events) {
             try {
               const parsed = JSON.parse(jsonStr);
+              assertSuccessfulSSEEvent(parsed);
               if (parsed.data?.audio) {
                 const audioBuffer = await tryDecodeChunk(
                   parsed.data.audio,
@@ -230,8 +243,12 @@ export async function processStreamResponse(
                   callbacks.onChunk?.(audioBuffer, chunkIndex++);
                 }
               }
-            } catch {
-              // Skip
+            } catch (e) {
+              if (e instanceof SyntaxError) {
+                console.warn('Failed to parse SSE event:', e);
+                continue;
+              }
+              throw e;
             }
           }
         }
@@ -242,7 +259,9 @@ export async function processStreamResponse(
     callbacks.onComplete?.(audioChunks.length);
   } catch (error) {
     console.error('Stream processing error:', error);
-    callbacks.onError?.(error instanceof Error ? error : new Error(String(error)));
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    callbacks.onError?.(normalizedError);
+    throw normalizedError;
   } finally {
     reader.releaseLock();
   }
@@ -257,7 +276,9 @@ export async function processStreamResponse(
 export async function streamAndPlay(
   response: Response,
   onComplete?: () => void,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
+  audioFormat: string = 'mp3',
+  sampleRate: number = 32000
 ): Promise<AudioContext> {
   const audioContext = new AudioContext();
   let scheduledTime = audioContext.currentTime + 0.05; // Small buffer
@@ -293,7 +314,9 @@ export async function streamAndPlay(
         onError?.(err);
       },
     },
-    audioContext
+    audioContext,
+    audioFormat,
+    sampleRate
   );
 
   return audioContext;

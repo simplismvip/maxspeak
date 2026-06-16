@@ -27,7 +27,7 @@ export function TextInput() {
       />
       {isOverLimit && (
         <p className="text-xs text-red-500 mt-1">
-          超过字数限制，同步模式下最多 {PARAM_RANGES.textMaxLength} 字符。请使用流式合成或缩短文本。
+          超过字数限制，最多 {PARAM_RANGES.textMaxLength} 字符。请缩短文本后再合成。
         </p>
       )}
     </div>

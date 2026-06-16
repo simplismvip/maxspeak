@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  fetchWithTimeout,
+  getMiniMaxBaseUrl,
+  isAbortError,
+  readTextLimited,
+  UPSTREAM_TIMEOUT_MS,
+} from '@/lib/server/security';
 
 function hexToBuffer(hex: string): Buffer {
   const clean = hex.replace(/\s/g, '');
@@ -62,10 +69,16 @@ function detectFormat(buf: Buffer): { mime: string; fmt: string } {
 export async function POST(request: NextRequest) {
   try {
     const apiKey = request.headers.get('x-api-key');
-    const baseUrl = request.headers.get('x-base-url') || 'https://api.minimax.io';
 
     if (!apiKey) {
       return NextResponse.json({ error: 'API Key is required.' }, { status: 401 });
+    }
+
+    let baseUrl: string;
+    try {
+      baseUrl = getMiniMaxBaseUrl(request);
+    } catch {
+      return NextResponse.json({ error: 'Invalid x-base-url' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -77,16 +90,16 @@ export async function POST(request: NextRequest) {
     console.log('[synthesize] → MiniMax', JSON.stringify(logBody));
 
     // Use hex mode — we always get raw bytes, no CDN expiry issues
-    const ttsRes = await fetch(`${baseUrl}/v1/t2a_v2`, {
+    const ttsRes = await fetchWithTimeout(`${baseUrl}/v1/t2a_v2`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ ...body, output_format: 'hex', stream: false }),
-    });
+    }, UPSTREAM_TIMEOUT_MS);
 
-    const ttsText = await ttsRes.text();
+    const ttsText = await readTextLimited(ttsRes);
 
     if (!ttsRes.ok) {
       console.error('[synthesize] MiniMax error:', ttsRes.status, ttsText.slice(0, 400));
@@ -142,6 +155,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[synthesize] Exception:', error);
+    if (isAbortError(error)) {
+      return NextResponse.json({ error: 'MiniMax API request timed out' }, { status: 504 });
+    }
+    if (error instanceof Error && error.message === 'Response too large') {
+      return NextResponse.json({ error: 'MiniMax response too large' }, { status: 502 });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal error' },
       { status: 500 }
