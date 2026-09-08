@@ -12,6 +12,7 @@ export const ENDPOINTS = {
   VOICE_DESIGN: '/v1/voice_design',
   GET_VOICE: '/v1/get_voice',
   FILE_UPLOAD: '/v1/files/upload',
+  CHAT: '/v1/chat/completions',
 } as const;
 
 // Model options with metadata

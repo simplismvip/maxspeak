@@ -1,22 +1,134 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { PRESET_VOICES, VOICE_LANGUAGES, filterVoices, groupVoicesByLanguage } from '@/lib/voices/preset-voices';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useServerConfig } from '@/lib/store/useServerConfig';
 import { useTTSStore } from '@/lib/store/useTTSStore';
+import { useAuthStore } from '@/lib/store/useAuthStore';
 import { cn } from '@/lib/utils';
 import { minimaxHeaders } from '@/lib/minimax/request';
-import { Search, Library, RefreshCw } from 'lucide-react';
+import { ChevronDown, Search, Library } from 'lucide-react';
 import { LibraryVoiceCard } from '@/components/library/LibraryVoiceCard';
+import { LoginRequiredState } from '@/components/auth/LoginRequiredState';
 
 type VoiceSource = 'system' | 'cloned' | 'designed';
+
+function FitSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
+  const label = options.find((option) => option.value === value)?.label ?? options[0]?.label ?? '';
+
+  const updateMenuPos = useCallback(() => {
+    const el = buttonRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 4;
+    const maxH = 256;
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const openUp = spaceBelow < 160 && rect.top > spaceBelow;
+    setMenuStyle({
+      position: 'fixed',
+      left: rect.left,
+      top: openUp ? undefined : rect.bottom + gap,
+      bottom: openUp ? window.innerHeight - rect.top + gap : undefined,
+      minWidth: rect.width,
+      maxHeight: Math.min(maxH, Math.max(120, openUp ? rect.top - 8 : spaceBelow)),
+      zIndex: 80,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updateMenuPos();
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', updateMenuPos);
+    window.addEventListener('scroll', updateMenuPos, true);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', updateMenuPos);
+      window.removeEventListener('scroll', updateMenuPos, true);
+    };
+  }, [open, updateMenuPos]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="input-field relative inline-flex w-auto shrink-0 cursor-pointer items-center whitespace-nowrap py-2.5 pl-3.5 pr-10 text-left text-sm"
+      >
+        {label}
+        <ChevronDown
+          size={14}
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[rgb(var(--muted-foreground))]"
+        />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            style={menuStyle}
+            className="overflow-y-auto rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] py-1 shadow-lg"
+          >
+            {options.map((option) => (
+              <button
+                key={option.value || 'all'}
+                type="button"
+                role="option"
+                aria-selected={option.value === value}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  'flex w-full whitespace-nowrap px-3.5 py-2 text-left text-sm',
+                  option.value === value
+                    ? 'bg-brand/10 text-[rgb(var(--foreground))]'
+                    : 'text-[rgb(var(--foreground))] hover:bg-[rgb(var(--muted))]',
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
 
 export function VoiceLibrary() {
   const settings = useSettingsStore();
   const hasServerKey = useServerConfig((s) => s.hasServerKey);
   const setVoiceId = useTTSStore((s) => s.setVoiceId);
   const selectedVoiceId = useTTSStore((s) => s.voiceId);
+  const user = useAuthStore((s) => s.user);
   const [search, setSearch] = useState('');
   const [language, setLanguage] = useState<string>('');
   const [gender, setGender] = useState<string>('');
@@ -25,6 +137,13 @@ export function VoiceLibrary() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [syncedVoices, setSyncedVoices] = useState<any[]>([]);
   const [hasSynced, setHasSynced] = useState(false);
+
+  useEffect(() => {
+    const src = new URLSearchParams(window.location.search).get('source');
+    if (src === 'cloned' || src === 'designed' || src === 'system') {
+      setSource(src);
+    }
+  }, []);
 
   // Load custom voices
   const clonedVoices = useMemo(() => {
@@ -259,8 +378,8 @@ export function VoiceLibrary() {
       <div className="flex gap-1 mb-4 p-0.5 bg-[rgb(var(--muted))] rounded-lg w-fit">
         {[
           { id: 'system' as VoiceSource, label: '系统音色', count: allSystemVoices.length },
-          { id: 'cloned' as VoiceSource, label: '复刻音色', count: clonedVoices.length },
-          { id: 'designed' as VoiceSource, label: '设计音色', count: designedVoices.length },
+          { id: 'cloned' as VoiceSource, label: '复刻音色', count: user ? clonedVoices.length : null },
+          { id: 'designed' as VoiceSource, label: '设计音色', count: user ? designedVoices.length : null },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -272,38 +391,45 @@ export function VoiceLibrary() {
                 : 'text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))]'
             )}
           >
-            {tab.label} ({tab.count})
+            {tab.label}{tab.count == null ? '' : ` (${tab.count})`}
           </button>
         ))}
       </div>
 
       {/* Filters (for system voices only) */}
       {source === 'system' && (
-        <div className="flex gap-3 mb-4">
-          <div className="relative flex-1 max-w-xs">
+        <div className="mb-4 flex flex-wrap items-center gap-3 pr-6">
+          <div className="relative min-w-[12rem] flex-1 max-w-xs">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[rgb(var(--muted-foreground))]"
+            />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="🔍 搜索音色..."
-              className="input-field pl-8 text-sm"
+              placeholder="搜索音色..."
+              className="input-field pl-9 text-sm"
             />
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[rgb(var(--muted-foreground))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
           </div>
-          <select value={language} onChange={(e) => setLanguage(e.target.value)} className="input-field text-sm w-40">
-            <option value="">全部语言</option>
-            {VOICE_LANGUAGES.map(l => (
-              <option key={l.code} value={l.code}>{l.label}</option>
-            ))}
-          </select>
-          <select value={gender} onChange={(e) => setGender(e.target.value)} className="input-field text-sm w-24">
-            <option value="">全部</option>
-            <option value="male">男声</option>
-            <option value="female">女声</option>
-            <option value="neutral">中性</option>
-          </select>
+          <FitSelect
+            value={language}
+            onChange={setLanguage}
+            options={[
+              { value: '', label: '全部语言' },
+              ...VOICE_LANGUAGES.map((item) => ({ value: item.code, label: item.label })),
+            ]}
+          />
+          <FitSelect
+            value={gender}
+            onChange={setGender}
+            options={[
+              { value: '', label: '全部' },
+              { value: 'male', label: '男声' },
+              { value: 'female', label: '女声' },
+              { value: 'neutral', label: '中性' },
+            ]}
+          />
         </div>
       )}
 
@@ -343,7 +469,14 @@ export function VoiceLibrary() {
       )}
 
       {/* Cloned Voices */}
-      {source === 'cloned' && (
+      {source === 'cloned' && !user && (
+        <LoginRequiredState
+          title="登录后查看复刻音色"
+          description="复刻音色仅对您的登录账户可见。"
+          next="/voices?source=cloned"
+        />
+      )}
+      {source === 'cloned' && user && (
         <div>
           {clonedVoices.length === 0 ? (
             <div className="text-center py-12">
@@ -383,7 +516,14 @@ export function VoiceLibrary() {
       )}
 
       {/* Designed Voices */}
-      {source === 'designed' && (
+      {source === 'designed' && !user && (
+        <LoginRequiredState
+          title="登录后查看设计音色"
+          description="设计音色仅对您的登录账户可见。"
+          next="/voices?source=designed"
+        />
+      )}
+      {source === 'designed' && user && (
         <div>
           {designedVoices.length === 0 ? (
             <div className="text-center py-12">

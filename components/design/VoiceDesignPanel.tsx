@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Sparkles, WandSparkles } from 'lucide-react';
 import { minimaxHeaders } from '@/lib/minimax/request';
 import type { DesignedVoice } from '@/lib/minimax/types';
+import { HelpTip } from '@/components/ui/HelpTip';
 
 function hexToAudioUrl(hex: string): string {
   const bytes = new Uint8Array(hex.length / 2);
@@ -33,6 +33,8 @@ export function VoiceDesignPanel() {
     }
     return [];
   });
+
+  const [isGenerating, setIsGenerating] = useState<'prompt' | 'preview' | null>(null);
 
   const saveDesignedVoices = (voices: DesignedVoice[]) => {
     setDesignedVoices(voices);
@@ -98,6 +100,29 @@ export function VoiceDesignPanel() {
     }
   };
 
+  const handleGenerateCopy = async (field: 'prompt' | 'preview') => {
+    setError(null);
+    setIsGenerating(field);
+    try {
+      const hint = field === 'prompt' ? prompt : previewText || prompt;
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ field, hint }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '生成失败');
+      const text = String(data.text || '').trim();
+      if (!text) throw new Error('模型没有返回可用文本');
+      if (field === 'prompt') setPrompt(text.slice(0, 500));
+      else setPreviewText(text);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '生成失败');
+    } finally {
+      setIsGenerating(null);
+    }
+  };
+
   const handleReset = () => {
     setPrompt('');
     setPreviewText('');
@@ -107,16 +132,16 @@ export function VoiceDesignPanel() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto">
+    <div className="mx-auto w-full max-w-5xl">
       <div className="mb-6">
-        <h2 className="text-lg font-bold text-[rgb(var(--foreground))] tracking-tight flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center">
+        <h2 className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-[rgb(var(--foreground))]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-500/10">
             <Sparkles size={16} className="text-amber-500" />
           </div>
           Voice Design
         </h2>
-        <p className="text-sm text-[rgb(var(--muted-foreground))] mt-1">
-          通过文字描述来创造全新的音色，无需音频样本。费用：预览生成 $30/1M 字符，音色首次使用 ¥9.9。
+        <p className="ml-[42px] mt-1.5 text-sm text-[rgb(var(--muted-foreground))]">
+          通过文字描述来创造全新的音色，无需音频样本。
         </p>
       </div>
 
@@ -134,28 +159,65 @@ export function VoiceDesignPanel() {
       {!result ? (
         <div className="card p-6 space-y-4">
           <div>
-            <label className="label">
-              音色描述 <span className="text-[rgb(var(--muted-foreground))]">({prompt.length}/500)</span>
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="用自然语言描述您想要的音色...&#10;&#10;例如：&#10;• 温柔知性的女性声音，语速适中，适合朗读散文&#10;• 充满活力的年轻男声，快节奏，有感染力，适合产品评测&#10;• 沉稳大气的中年男性播音员，声音浑厚有力"
-              rows={4}
-              className="input-field resize-none"
-              maxLength={500}
-            />
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-[rgb(var(--muted-foreground))]">
+              <span>音色描述</span>
+              <HelpTip label="设计技巧" title="设计技巧">
+                <ul className="list-disc space-y-0.5 pl-4 text-[rgb(var(--muted-foreground))]">
+                  <li>描述性别、年龄、语气风格</li>
+                  <li>可指定语速、音高特征</li>
+                  <li>可描述情感特点（温柔/活泼/沉稳/激昂）</li>
+                  <li>可指定使用场景（播音/朗读/对话/配音）</li>
+                </ul>
+              </HelpTip>
+              <span className="font-normal tracking-normal">({prompt.length}/500)</span>
+            </div>
+            <p className="mb-2 text-xs text-[rgb(var(--muted-foreground))]">
+              告诉系统你想要什么样的声音，例如性别、年龄、语气和使用场景。设计接口会按这段描述生成音色。
+            </p>
+            <div className="relative">
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="例如：温柔知性的女性声音，语速适中，适合朗读散文"
+                rows={4}
+                className="input-field resize-none pb-11"
+                maxLength={500}
+              />
+              <button
+                type="button"
+                onClick={() => void handleGenerateCopy('prompt')}
+                disabled={isGenerating !== null || isDesigning}
+                className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-lg bg-brand/15 px-2.5 py-1 text-xs font-medium text-brand hover:bg-brand/25 disabled:opacity-50"
+              >
+                <WandSparkles size={12} />
+                {isGenerating === 'prompt' ? '生成中...' : 'AI 生成'}
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="label">预览文本</label>
-            <textarea
-              value={previewText}
-              onChange={(e) => setPreviewText(e.target.value)}
-              placeholder="输入用于预览音色效果的文本..."
-              rows={3}
-              className="input-field resize-none"
-            />
+            <p className="mb-2 text-xs text-[rgb(var(--muted-foreground))]">
+              设计完成后用来试听的那段话。系统会用新音色朗读它，方便你判断效果。
+            </p>
+            <div className="relative">
+              <textarea
+                value={previewText}
+                onChange={(e) => setPreviewText(e.target.value)}
+                placeholder="输入一段会被朗读的试听文案..."
+                rows={3}
+                className="input-field resize-none pb-11"
+              />
+              <button
+                type="button"
+                onClick={() => void handleGenerateCopy('preview')}
+                disabled={isGenerating !== null || isDesigning}
+                className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-lg bg-brand/15 px-2.5 py-1 text-xs font-medium text-brand hover:bg-brand/25 disabled:opacity-50"
+              >
+                <WandSparkles size={12} />
+                {isGenerating === 'preview' ? '生成中...' : 'AI 生成'}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -166,21 +228,6 @@ export function VoiceDesignPanel() {
               placeholder="留空则自动生成 ttv-voice- 前缀的 ID"
               className="input-field font-mono text-sm"
             />
-          </div>
-
-          {/* Design Tips */}
-          <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950 text-xs text-purple-700 dark:text-purple-300 space-y-1">
-            <p className="font-medium">💡 设计技巧：</p>
-            <ul className="list-disc list-inside space-y-0.5">
-              <li>描述性别、年龄、语气风格</li>
-              <li>可指定语速、音高特征</li>
-              <li>可描述情感特点（温柔/活泼/沉稳/激昂）</li>
-              <li>可指定使用场景（播音/朗读/对话/配音）</li>
-            </ul>
-          </div>
-
-          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950 text-xs text-amber-700 dark:text-amber-300">
-            💰 预览生成按 $30/1M 字符计费。音色首次 TTS 使用时扣费 ¥9.9。
           </div>
 
           <button

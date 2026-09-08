@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { SiteHeader } from '@/components/marketing/SiteHeader';
 import { SiteFooter } from '@/components/marketing/SiteFooter';
 import { useAuthStore } from '@/lib/store/useAuthStore';
+import { safeInternalPath } from '@/lib/auth/next-path';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -15,13 +16,14 @@ export default function SignInPage() {
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    const next = email.trim();
-    if (!next.includes('@')) {
+    const nextEmail = email.trim();
+    if (!nextEmail.includes('@')) {
       setError('请输入有效邮箱');
       return;
     }
-    signIn(next);
-    router.replace('/text-to-speech');
+    signIn(nextEmail);
+    const nextPath = safeInternalPath(new URLSearchParams(window.location.search).get('next'));
+    router.replace(nextPath);
   };
 
   return (

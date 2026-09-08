@@ -6,7 +6,8 @@ import { minimaxHeaders } from '@/lib/minimax/request';
 import { MODELS } from '@/lib/minimax/constants';
 import type { ClonedVoice, MiniMaxModel } from '@/lib/minimax/types';
 import { cn } from '@/lib/utils';
-import { Mic, Upload, Check, Info } from 'lucide-react';
+import { Mic, Upload, Check } from 'lucide-react';
+import { HelpTip } from '@/components/ui/HelpTip';
 
 export function VoiceClonePanel() {
   const [step, setStep] = useState<'upload' | 'configure' | 'result'>('upload');
@@ -191,7 +192,17 @@ export function VoiceClonePanel() {
         <div className="card p-6 space-y-4">
           {/* Main audio upload */}
           <div>
-            <label className="label">音频样本（必选）</label>
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-[rgb(var(--muted-foreground))]">
+              <span>音频样本（必选）</span>
+              <HelpTip label="音频要求" title="音频要求">
+                <ul className="list-disc space-y-0.5 pl-4 text-[rgb(var(--muted-foreground))]">
+                  <li>格式：mp3 / m4a / wav</li>
+                  <li>时长：10秒 ~ 5分钟（建议 30秒以上）</li>
+                  <li>大小：不超过 20MB</li>
+                  <li>内容：清晰的语音，背景噪音尽量少</li>
+                </ul>
+              </HelpTip>
+            </div>
             <AudioUploadArea
               file={audioFile}
               onFileSelect={setAudioFile}
@@ -219,17 +230,6 @@ export function VoiceClonePanel() {
                 已选择: {promptFile.name}
               </p>
             )}
-          </div>
-
-          {/* Requirements note */}
-          <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 text-xs text-blue-700 dark:text-blue-300 space-y-1">
-            <p className="font-medium">📋 音频要求：</p>
-            <ul className="list-disc list-inside space-y-0.5">
-              <li>格式：mp3 / m4a / wav</li>
-              <li>时长：10秒 ~ 5分钟（建议 30秒以上）</li>
-              <li>大小：不超过 20MB</li>
-              <li>内容：清晰的语音，背景噪音尽量少</li>
-            </ul>
           </div>
 
           <button
