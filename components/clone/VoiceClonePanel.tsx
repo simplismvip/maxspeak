@@ -171,8 +171,8 @@ export function VoiceClonePanel() {
           </div>
           Voice Clone
         </h2>
-        <p className="text-sm text-[rgb(var(--muted-foreground))] mt-1">
-          上传一段音频样本，复刻您想要的音色。费用 ¥9.9/音色（首次使用时扣费）。
+        <p className="ml-[42px] mt-1.5 text-sm text-[rgb(var(--muted-foreground))]">
+          上传一段音频样本，复刻您想要的音色。
         </p>
       </div>
 

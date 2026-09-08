@@ -15,6 +15,7 @@ export interface StreamCallbacks {
   onProgress?: (received: number) => void;
   onComplete?: (totalChunks: number) => void;
   onError?: (error: Error) => void;
+  onRawAudio?: (hex: string) => void;
 }
 
 /**
@@ -196,6 +197,7 @@ export async function processStreamResponse(
 
             // Extract audio data
             if (parsed.data?.audio) {
+              callbacks.onRawAudio?.(parsed.data.audio);
               const audioBuffer = await tryDecodeChunk(
                 parsed.data.audio,
                 audioFormat,
@@ -232,6 +234,7 @@ export async function processStreamResponse(
               const parsed = JSON.parse(jsonStr);
               assertSuccessfulSSEEvent(parsed);
               if (parsed.data?.audio) {
+                callbacks.onRawAudio?.(parsed.data.audio);
                 const audioBuffer = await tryDecodeChunk(
                   parsed.data.audio,
                   audioFormat,
@@ -278,7 +281,8 @@ export async function streamAndPlay(
   onComplete?: () => void,
   onError?: (error: Error) => void,
   audioFormat: string = 'mp3',
-  sampleRate: number = 32000
+  sampleRate: number = 32000,
+  onHexChunk?: (hex: string) => void,
 ): Promise<AudioContext> {
   const audioContext = new AudioContext();
   let scheduledTime = audioContext.currentTime + 0.05; // Small buffer
@@ -299,6 +303,7 @@ export async function streamAndPlay(
       onChunk: (audioBuffer) => {
         scheduleNext(audioBuffer);
       },
+      onRawAudio: onHexChunk,
       onComplete: (total) => {
         // All chunks scheduled — wait for playback to finish
         const totalDuration = scheduledTime - audioContext.currentTime;

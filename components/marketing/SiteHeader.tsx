@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 export function SiteHeader() {
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
 
   return (
     <header className="sticky top-0 z-40 border-b border-[rgb(var(--border))]/80 bg-[rgb(var(--background))]/90 backdrop-blur">
@@ -43,10 +44,19 @@ export function SiteHeader() {
         </nav>
 
         {user ? (
-          <Link href="/text-to-speech" className="btn-secondary h-9 px-3 text-xs">
-            <UserRound size={14} />
-            {user.name}
-          </Link>
+          <div className="flex items-center gap-1">
+            <Link href="/text-to-speech" className="btn-secondary h-9 px-3 text-xs">
+              <UserRound size={14} />
+              {user.name}
+            </Link>
+            <button
+              type="button"
+              onClick={() => signOut()}
+              className="btn-ghost h-9 px-2 text-xs"
+            >
+              退出
+            </button>
+          </div>
         ) : (
           <Link href="/signin" className="btn-secondary h-9 px-3 text-xs">
             <UserRound size={14} />

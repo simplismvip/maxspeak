@@ -45,12 +45,14 @@ const PREVIEW_TEXTS: Record<string, string> = {
 import { useTTSStore } from '@/lib/store/useTTSStore';
 import { usePlayerStore } from '@/lib/store/usePlayerStore';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
+import { useAuthStore } from '@/lib/store/useAuthStore';
+import { blobToDataUrl, useHistoryStore } from '@/lib/store/useHistoryStore';
 import { estimateCost } from '@/lib/utils';
-import { formatToExtension } from '@/lib/audio/utils';
+import { formatToExtension, hexAudioToBlob } from '@/lib/audio/utils';
 import { stopCurrent } from '@/lib/audio/player';
 import { streamAndPlay } from '@/lib/audio/stream-decoder';
 import { PRICING, PARAM_RANGES } from '@/lib/minimax/constants';
-import { AudioLines, Radio, AlertCircle, CircleCheck } from 'lucide-react';
+import { AudioLines, Radio, AlertCircle, CircleCheck, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { minimaxHeaders } from '@/lib/minimax/request';
 import { useServerConfig } from '@/lib/store/useServerConfig';
@@ -61,6 +63,29 @@ export function TextToSpeechPanel() {
   const player = usePlayerStore();
   const settings = useSettingsStore();
   const hasServerKey = useServerConfig((s) => s.hasServerKey);
+  const addHistory = useHistoryStore((s) => s.addRecord);
+
+  const saveHistory = useCallback(async (blob: Blob, format: string, duration?: number) => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    try {
+      const audioDataUrl = await blobToDataUrl(blob);
+      if (!audioDataUrl) return;
+      const voice = PRESET_VOICES.find((item) => item.id === tts.voiceId);
+      addHistory({
+        userEmail: user.email,
+        text: tts.text,
+        voiceId: tts.voiceId,
+        voiceName: voice?.name || tts.voiceId,
+        model: tts.model,
+        format,
+        audioDataUrl,
+        duration,
+      });
+    } catch {
+      /* history persistence is non-critical */
+    }
+  }, [addHistory, tts.text, tts.voiceId, tts.model]);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -168,6 +193,7 @@ export function TextToSpeechPanel() {
 
         const actualFormat = response.headers.get('x-audio-format') || tts.audioFormat;
         const actualSampleRate = Number(response.headers.get('x-audio-sample-rate')) || tts.sampleRate;
+        const hexChunks: string[] = [];
 
         await streamAndPlay(
           response,
@@ -181,8 +207,14 @@ export function TextToSpeechPanel() {
             player.setLoading(false);
           },
           actualFormat,
-          actualSampleRate
+          actualSampleRate,
+          (hex) => hexChunks.push(hex),
         );
+
+        if (hexChunks.length > 0) {
+          const streamedBlob = hexAudioToBlob(hexChunks.join(''), actualFormat, actualSampleRate);
+          void saveHistory(streamedBlob, actualFormat);
+        }
       } else {
         // -------- SYNCHRONOUS PATH --------
         // Server always returns binary audio (Content-Type: audio/*)
@@ -210,6 +242,7 @@ export function TextToSpeechPanel() {
         player.setLastGeneratedAudio({ url: blobUrl, format: actualFmt, fileName });
         const durationMs = parseInt(res.headers.get('x-audio-duration') || '0', 10);
         if (durationMs > 0) player.setDuration(durationMs / 1000);
+        void saveHistory(blob, actualFmt, durationMs > 0 ? durationMs / 1000 : undefined);
 
         if (settings.autoPlay) {
           requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -231,10 +264,21 @@ export function TextToSpeechPanel() {
     } finally {
       setIsSynthesizing(false);
     }
-  }, [tts.text, tts.model, tts.voiceId, tts.speed, tts.volume, tts.pitch, tts.emotion, tts.audioFormat, tts.sampleRate, tts.bitrate, tts.channel, tts.languageBoost, tts.voiceModify, tts.pronunciationEntries, shouldStream, isTextOverLimit, textLimitError, settings, player]);
+  }, [tts.text, tts.model, tts.voiceId, tts.speed, tts.volume, tts.pitch, tts.emotion, tts.audioFormat, tts.sampleRate, tts.bitrate, tts.channel, tts.languageBoost, tts.voiceModify, tts.pronunciationEntries, shouldStream, isTextOverLimit, textLimitError, settings, player, saveHistory]);
 
   return (
-    <div>
+    <div className="mx-auto w-full max-w-5xl">
+      <div className="mb-6">
+        <h2 className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-[rgb(var(--foreground))]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-500/10">
+            <Volume2 size={16} className="text-emerald-500" />
+          </div>
+          生成语音
+        </h2>
+        <p className="ml-[42px] mt-1.5 text-sm text-[rgb(var(--muted-foreground))]">
+          把文案转成有情绪的声音
+        </p>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Text Input & Core Controls */}
         <div className="lg:col-span-2 space-y-4">
