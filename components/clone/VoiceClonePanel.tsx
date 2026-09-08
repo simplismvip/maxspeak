@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { validateVoiceId } from '@/lib/utils';
+import { minimaxHeaders } from '@/lib/minimax/request';
 import { MODELS } from '@/lib/minimax/constants';
 import type { ClonedVoice, MiniMaxModel } from '@/lib/minimax/types';
 import { cn } from '@/lib/utils';
 import { Mic, Upload, Check, Info } from 'lucide-react';
 
 export function VoiceClonePanel() {
-  const settings = useSettingsStore();
   const [step, setStep] = useState<'upload' | 'configure' | 'result'>('upload');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [promptFile, setPromptFile] = useState<File | null>(null);
@@ -50,10 +49,7 @@ export function VoiceClonePanel() {
 
       const res = await fetch('/api/upload', {
         method: 'POST',
-        headers: {
-          'x-api-key': settings.apiKey,
-          ...(settings.baseUrl !== 'https://api.minimax.io' ? { 'x-base-url': settings.baseUrl } : {}),
-        },
+        headers: minimaxHeaders(),
         body: formData,
       });
 
@@ -73,10 +69,7 @@ export function VoiceClonePanel() {
 
         const promptRes = await fetch('/api/upload', {
           method: 'POST',
-          headers: {
-            'x-api-key': settings.apiKey,
-            ...(settings.baseUrl !== 'https://api.minimax.io' ? { 'x-base-url': settings.baseUrl } : {}),
-          },
+          headers: minimaxHeaders(),
           body: promptForm,
         });
 
@@ -119,11 +112,7 @@ export function VoiceClonePanel() {
 
       const res = await fetch('/api/voices/clone', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': settings.apiKey,
-          ...(settings.baseUrl !== 'https://api.minimax.io' ? { 'x-base-url': settings.baseUrl } : {}),
-        },
+        headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(body),
       });
 
@@ -173,7 +162,7 @@ export function VoiceClonePanel() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto">
+    <div className="mx-auto w-full max-w-5xl">
       <div className="mb-6">
         <h2 className="text-lg font-bold text-[rgb(var(--foreground))] tracking-tight flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-cyan-100 dark:bg-cyan-500/10 flex items-center justify-center">

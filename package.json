@@ -2,7 +2,7 @@
   "name": "maxspeak",
   "version": "1.0.0",
   "private": true,
-  "description": "MaxSpeak — AI Text to Speech Studio with Voice Cloning & Voice Design, powered by MiniMax API",
+  "description": "Voxify — AI Text to Speech Studio with Voice Cloning & Voice Design, powered by MiniMax API",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

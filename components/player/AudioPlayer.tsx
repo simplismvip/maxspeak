@@ -206,12 +206,12 @@ export function AudioPlayer() {
           className={cn(
             'w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0',
             isLoading
-              ? 'bg-violet-100 dark:bg-violet-500/10 cursor-default'
-              : 'bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-500/25 active:scale-95'
+              ? 'bg-brand/10 cursor-default'
+              : 'bg-brand hover:brightness-110 text-brand-foreground active:scale-95'
           )}
         >
           {isLoading ? (
-            <Loader2 size={20} className="animate-spin text-violet-600 dark:text-violet-400" />
+            <Loader2 size={20} className="animate-spin text-brand" />
           ) : isActive ? (
             <Pause size={18} />
           ) : (
@@ -225,7 +225,7 @@ export function AudioPlayer() {
             <div className="space-y-1">
               <div className="h-2 bg-[rgb(var(--muted))] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                  className="h-full bg-brand rounded-full transition-all duration-300"
                   style={{ width: `${Math.max(player.streamingProgress, 2)}%` }}
                 />
               </div>
@@ -266,7 +266,7 @@ export function AudioPlayer() {
                 }}
               >
                 <div
-                  className="h-full bg-violet-500 rounded-full transition-all"
+                  className="h-full bg-brand rounded-full transition-all"
                   style={{
                     width: `${player.duration > 0 ? (player.currentTime / player.duration) * 100 : 0}%`,
                   }}

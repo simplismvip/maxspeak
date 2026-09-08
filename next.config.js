@@ -6,6 +6,14 @@ const nextConfig = {
       bodySizeLimit: '25mb',
     },
   },
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.watchOptions = {
+        ignored: ['**/node_modules/**', '**/.git/**', '**/.next/**'],
+      };
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;

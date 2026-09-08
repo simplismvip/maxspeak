@@ -23,13 +23,13 @@ export function VoiceCard({ voice, isSelected, onSelect, onPreview, previewLoadi
       className={cn(
         'w-full text-left px-2.5 py-2 rounded-lg transition-all duration-150 text-sm group cursor-pointer',
         isSelected
-          ? 'bg-violet-50 dark:bg-violet-500/10 border border-violet-300 dark:border-violet-700'
+          ? 'bg-brand/10 border border-brand/40'
           : 'hover:bg-[rgb(var(--muted))]'
       )}
     >
       <div className="flex items-center gap-2">
         <span className="flex-shrink-0">
-          {voice.gender === 'female' ? <UserRound size={14} className="text-rose-500" /> : voice.gender === 'male' ? <User size={14} className="text-sky-500" /> : <Bot size={14} className="text-violet-500" />}
+          {voice.gender === 'female' ? <UserRound size={14} className="text-rose-400" /> : voice.gender === 'male' ? <User size={14} className="text-sky-400" /> : <Bot size={14} className="text-brand" />}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
@@ -42,8 +42,8 @@ export function VoiceCard({ voice, isSelected, onSelect, onPreview, previewLoadi
                 disabled={previewLoading}
                 className={cn(
                   'flex-shrink-0 p-1 rounded-md transition-all opacity-0 group-hover:opacity-100',
-                  'hover:bg-violet-100 dark:hover:bg-violet-500/20',
-                  'text-[rgb(var(--muted-foreground))] hover:text-violet-600 dark:hover:text-violet-400',
+                  'hover:bg-brand/15',
+                  'text-[rgb(var(--muted-foreground))] hover:text-brand',
                   previewLoading && 'opacity-100 animate-pulse'
                 )}
                 title="试听"

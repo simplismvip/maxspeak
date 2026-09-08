@@ -52,12 +52,15 @@ import { streamAndPlay } from '@/lib/audio/stream-decoder';
 import { PRICING, PARAM_RANGES } from '@/lib/minimax/constants';
 import { AudioLines, Radio, AlertCircle, CircleCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { minimaxHeaders } from '@/lib/minimax/request';
+import { useServerConfig } from '@/lib/store/useServerConfig';
 import { PRESET_VOICES } from '@/lib/voices/preset-voices';
 
 export function TextToSpeechPanel() {
   const tts = useTTSStore();
   const player = usePlayerStore();
   const settings = useSettingsStore();
+  const hasServerKey = useServerConfig((s) => s.hasServerKey);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -69,14 +72,14 @@ export function TextToSpeechPanel() {
 
   // Preview voice from selector
   const handlePreviewVoice = useCallback(async (voiceId: string) => {
-    if (!settings.apiKey) return;
+    if (!settings.apiKey && !hasServerKey) return;
     setPreviewLoading(voiceId);
     try {
       const voice = PRESET_VOICES.find(v => v.id === voiceId);
       const languageBoost = voice ? (LANG_MAP[voice.language] || 'auto') : 'auto';
       const sampleText = voice?.sampleText || PREVIEW_TEXTS[voice?.language || ''] || 'Hello, voice preview.';
       const res = await fetch('/api/tts/synthesize', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'x-base-url': settings.baseUrl },
+        method: 'POST', headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ model: 'speech-2.8-turbo', text: sampleText, voice_setting: { voice_id: voiceId }, audio_setting: { sample_rate: 24000, bitrate: 64000, format: 'mp3', channel: 1 }, language_boost: languageBoost, output_format: 'hex' }),
       });
       if (!res.ok) return;
@@ -89,7 +92,7 @@ export function TextToSpeechPanel() {
         a.play().catch(() => {});
       }
     } catch { /* preview failed silently — non-critical */ } finally { setPreviewLoading(null); }
-  }, [settings]);
+  }, [settings, hasServerKey]);
 
   const handleSynthesize = useCallback(async () => {
     if (!tts.text.trim()) {
@@ -147,11 +150,7 @@ export function TextToSpeechPanel() {
 
         const response = await fetch('/api/tts/stream', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': settings.apiKey,
-            'x-base-url': settings.baseUrl,
-          },
+          headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ ...requestBody, stream: true }),
         });
 
@@ -189,11 +188,7 @@ export function TextToSpeechPanel() {
         // Server always returns binary audio (Content-Type: audio/*)
         const res = await fetch('/api/tts/synthesize', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': settings.apiKey,
-            'x-base-url': settings.baseUrl,
-          },
+          headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(requestBody),
         });
 
@@ -239,7 +234,7 @@ export function TextToSpeechPanel() {
   }, [tts.text, tts.model, tts.voiceId, tts.speed, tts.volume, tts.pitch, tts.emotion, tts.audioFormat, tts.sampleRate, tts.bitrate, tts.channel, tts.languageBoost, tts.voiceModify, tts.pronunciationEntries, shouldStream, isTextOverLimit, textLimitError, settings, player]);
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Text Input & Core Controls */}
         <div className="lg:col-span-2 space-y-4">

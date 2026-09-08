@@ -35,12 +35,12 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       <div className="flex items-center h-14 px-4 border-b border-[rgb(var(--border))]">
         <button onClick={onToggle} className="flex items-center gap-3 w-full text-left">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-            <Image src="/logo.webp" alt="MaxSpeak" width={32} height={32} className="w-full h-full object-contain" />
+            <Image src="/logo.png" alt="Voxify" width={32} height={32} className="w-full h-full object-contain" />
           </div>
           {isOpen && (
             <div className="overflow-hidden min-w-0">
               <div className="font-semibold text-sm text-[rgb(var(--foreground))] leading-tight">
-                MaxSpeak
+                Voxify
               </div>
               <div className="text-[11px] text-[rgb(var(--muted-foreground))] font-medium">
                 AI TTS Studio

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   fetchWithTimeout,
-  getMiniMaxBaseUrl,
   isAbortError,
   MAX_UPSTREAM_ERROR_BYTES,
   readTextLimited,
   STREAM_TIMEOUT_MS,
 } from '@/lib/server/security';
+import { miniMaxAuth } from '@/lib/server/minimax-auth';
 
 /**
  * POST /api/tts/stream
@@ -14,21 +14,9 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = request.headers.get('x-api-key');
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'API Key is required.' },
-        { status: 401 }
-      );
-    }
-
-    let baseUrl: string;
-    try {
-      baseUrl = getMiniMaxBaseUrl(request);
-    } catch {
-      return NextResponse.json({ error: 'Invalid x-base-url' }, { status: 400 });
-    }
+    const auth = miniMaxAuth(request);
+    if (!auth.ok) return auth.response;
+    const { apiKey, baseUrl } = auth;
 
     const body = await request.json();
     const audioFormat = body.audio_setting?.format || 'mp3';

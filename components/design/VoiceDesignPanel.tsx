@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { minimaxHeaders } from '@/lib/minimax/request';
 import type { DesignedVoice } from '@/lib/minimax/types';
 
 function hexToAudioUrl(hex: string): string {
@@ -16,7 +16,6 @@ function hexToAudioUrl(hex: string): string {
 }
 
 export function VoiceDesignPanel() {
-  const settings = useSettingsStore();
   const [prompt, setPrompt] = useState('');
   const [previewText, setPreviewText] = useState('');
   const [voiceId, setVoiceId] = useState('');
@@ -59,11 +58,7 @@ export function VoiceDesignPanel() {
 
       const res = await fetch('/api/voice-design', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': settings.apiKey,
-          ...(settings.baseUrl !== 'https://api.minimax.io' ? { 'x-base-url': settings.baseUrl } : {}),
-        },
+        headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(body),
       });
 

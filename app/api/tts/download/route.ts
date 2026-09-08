@@ -9,6 +9,7 @@ import {
   readArrayBufferLimited,
   readTextLimited,
 } from '@/lib/server/security';
+import { miniMaxAuth } from '@/lib/server/minimax-auth';
 
 /**
  * POST /api/tts/download
@@ -21,10 +22,8 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = request.headers.get('x-api-key');
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API Key is required.' }, { status: 401 });
-    }
+    const auth = miniMaxAuth(request);
+    if (!auth.ok) return auth.response;
 
     const { url } = await request.json();
 

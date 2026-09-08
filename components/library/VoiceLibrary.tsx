@@ -3,15 +3,20 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { PRESET_VOICES, VOICE_LANGUAGES, filterVoices, groupVoicesByLanguage } from '@/lib/voices/preset-voices';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
+import { useServerConfig } from '@/lib/store/useServerConfig';
 import { useTTSStore } from '@/lib/store/useTTSStore';
 import { cn } from '@/lib/utils';
+import { minimaxHeaders } from '@/lib/minimax/request';
 import { Search, Library, RefreshCw } from 'lucide-react';
+import { LibraryVoiceCard } from '@/components/library/LibraryVoiceCard';
 
 type VoiceSource = 'system' | 'cloned' | 'designed';
 
 export function VoiceLibrary() {
   const settings = useSettingsStore();
+  const hasServerKey = useServerConfig((s) => s.hasServerKey);
   const setVoiceId = useTTSStore((s) => s.setVoiceId);
+  const selectedVoiceId = useTTSStore((s) => s.voiceId);
   const [search, setSearch] = useState('');
   const [language, setLanguage] = useState<string>('');
   const [gender, setGender] = useState<string>('');
@@ -48,8 +53,8 @@ export function VoiceLibrary() {
 
   // Sync from API
   const handleSyncFromAPI = async () => {
-    if (!settings.apiKey) {
-      setSyncMessage('请先设置 API Key');
+    if (!settings.apiKey && !hasServerKey) {
+      setSyncMessage('请先配置 MiniMax API Key');
       return;
     }
 
@@ -59,11 +64,7 @@ export function VoiceLibrary() {
     try {
       const res = await fetch('/api/voices/list', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': settings.apiKey,
-          ...(settings.baseUrl !== 'https://api.minimax.io' ? { 'x-base-url': settings.baseUrl } : {}),
-        },
+        headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ voice_type: 'all', page_size: 500 }),
       });
 
@@ -113,7 +114,7 @@ export function VoiceLibrary() {
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const handlePreviewVoice = useCallback(async (voiceId: string) => {
-    if (!settings.apiKey) return;
+    if (!settings.apiKey && !hasServerKey) return;
 
     setPreviewLoading(voiceId);
     setPreviewError(null);
@@ -152,11 +153,7 @@ export function VoiceLibrary() {
 
       const res = await fetch('/api/tts/synthesize', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': settings.apiKey,
-          'x-base-url': settings.baseUrl,
-        },
+        headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(body),
       });
 
@@ -202,10 +199,10 @@ export function VoiceLibrary() {
     } finally {
       setPreviewLoading(null);
     }
-  }, [settings, ensurePreviewAudio]);
+  }, [settings, hasServerKey, ensurePreviewAudio]);
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div>
       <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-lg font-bold text-[rgb(var(--foreground))] tracking-tight flex items-center gap-2.5">
@@ -242,6 +239,12 @@ export function VoiceLibrary() {
           )}
         </button>
       </div>
+
+      {previewError && (
+        <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+          {previewError}
+        </p>
+      )}
 
       {syncMessage && (
         <div className={cn(
@@ -313,46 +316,20 @@ export function VoiceLibrary() {
                 {languageLabel}
                 <span className="text-xs font-normal text-[rgb(var(--muted-foreground))]">({voices.length})</span>
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                 {voices.map((voice) => (
-                  <div key={voice.id} className="card p-3 group hover:shadow-md transition-shadow">
-                    <div className="flex items-start gap-2">
-                      <span className="text-lg">
-                        {voice.gender === 'female' ? '👩' : voice.gender === 'male' ? '👨' : '🤖'}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-[rgb(var(--foreground))] truncate">
-                          {voice.name}
-                        </div>
-                        <div className="text-[10px] text-[rgb(var(--muted-foreground))] truncate">
-                          {voice.description}
-                        </div>
-                        {voice.tags && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {voice.tags.slice(0, 3).map(tag => (
-                              <span key={tag} className="text-[9px] px-1 py-0.5 rounded bg-[rgb(var(--muted))] text-[rgb(var(--muted-foreground))]">
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-1 mt-2 pt-2 border-t border-[rgb(var(--border))]">
-                      <button
-                        onClick={() => handlePreviewVoice(voice.id)}
-                        className="flex-1 text-[10px] py-1 rounded-md bg-[rgb(var(--muted))] hover:bg-primary-100 dark:hover:bg-primary-900 text-[rgb(var(--muted-foreground))] hover:text-primary-600 transition-colors"
-                      >
-                        ▶ 试听
-                      </button>
-                      <button
-                        onClick={() => setVoiceId(voice.id)}
-                        className="flex-1 text-[10px] py-1 rounded-md bg-primary-50 dark:bg-primary-950 hover:bg-primary-100 dark:hover:bg-primary-900 text-primary-600 transition-colors"
-                      >
-                        使用
-                      </button>
-                    </div>
-                  </div>
+                  <LibraryVoiceCard
+                    key={voice.id}
+                    seed={voice.id}
+                    name={voice.name}
+                    description={voice.description}
+                    meta={voice.languageLabel}
+                    tags={voice.tags}
+                    selected={selectedVoiceId === voice.id}
+                    previewLoading={previewLoading === voice.id}
+                    onPreview={() => void handlePreviewVoice(voice.id)}
+                    onUse={() => setVoiceId(voice.id)}
+                  />
                 ))}
               </div>
             </div>
@@ -377,37 +354,28 @@ export function VoiceLibrary() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
               {clonedVoices.map((voice: { voiceId: string; name: string; createdAt: number; demoAudio?: string; fileId: number }) => (
-                <div key={voice.voiceId} className="card p-3">
-                  <div className="font-mono text-sm font-medium text-[rgb(var(--foreground))] truncate">
-                    {voice.voiceId}
-                  </div>
-                  <div className="text-xs text-[rgb(var(--muted-foreground))] mt-1">
-                    {new Date(voice.createdAt).toLocaleString('zh-CN')}
-                  </div>
-                  <div className="flex gap-1 mt-2 pt-2 border-t border-[rgb(var(--border))]">
-                    {voice.demoAudio && (
-                      <button
-                        onClick={() => {
+                <LibraryVoiceCard
+                  key={voice.voiceId}
+                  seed={voice.voiceId}
+                  name={voice.name || voice.voiceId}
+                  description={voice.voiceId}
+                  meta={new Date(voice.createdAt).toLocaleString('zh-CN')}
+                  selected={selectedVoiceId === voice.voiceId}
+                  canPreview={Boolean(voice.demoAudio)}
+                  onPreview={
+                    voice.demoAudio
+                      ? () => {
                           try {
                             const a = new Audio(voice.demoAudio);
                             a.play().catch(() => {});
                           } catch {}
-                        }}
-                        className="flex-1 text-[10px] py-1 rounded-md bg-[rgb(var(--muted))] hover:bg-primary-100 dark:hover:bg-primary-900 transition-colors"
-                      >
-                        ▶ 试听
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setVoiceId(voice.voiceId)}
-                      className="flex-1 text-[10px] py-1 rounded-md bg-primary-50 dark:bg-primary-950 hover:bg-primary-100 dark:hover:bg-primary-900 text-primary-600 transition-colors"
-                    >
-                      使用
-                    </button>
-                  </div>
-                </div>
+                        }
+                      : undefined
+                  }
+                  onUse={() => setVoiceId(voice.voiceId)}
+                />
               ))}
             </div>
           )}
@@ -426,25 +394,21 @@ export function VoiceLibrary() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
               {designedVoices.map((voice: { voiceId: string; prompt: string; previewText: string; createdAt: number; trialAudio?: string }) => (
-                <div key={voice.voiceId} className="card p-3">
-                  <div className="font-mono text-sm font-medium text-[rgb(var(--foreground))] truncate">
-                    {voice.voiceId}
-                  </div>
-                  <p className="text-xs text-[rgb(var(--muted-foreground))] mt-1 line-clamp-2">
-                    {voice.prompt}
-                  </p>
-                  <div className="text-[10px] text-[rgb(var(--muted-foreground))] mt-1">
-                    {new Date(voice.createdAt).toLocaleString('zh-CN')}
-                  </div>
-                  <div className="flex gap-1 mt-2 pt-2 border-t border-[rgb(var(--border))]">
-                    {voice.trialAudio && (
-                      <button
-                        onClick={() => {
+                <LibraryVoiceCard
+                  key={voice.voiceId}
+                  seed={voice.voiceId}
+                  name={voice.voiceId}
+                  description={voice.prompt}
+                  meta={new Date(voice.createdAt).toLocaleString('zh-CN')}
+                  selected={selectedVoiceId === voice.voiceId}
+                  canPreview={Boolean(voice.trialAudio)}
+                  onPreview={
+                    voice.trialAudio
+                      ? () => {
                           try {
                             const audio = voice.trialAudio!;
-                            // trial_audio is hex-encoded MP3
                             const bytes = new Uint8Array(audio.length / 2);
                             for (let i = 0; i < audio.length; i += 2) {
                               bytes[i / 2] = parseInt(audio.substring(i, i + 2), 16);
@@ -454,20 +418,11 @@ export function VoiceLibrary() {
                             const a = new Audio(url);
                             a.play().catch(() => {});
                           } catch {}
-                        }}
-                        className="flex-1 text-[10px] py-1 rounded-md bg-[rgb(var(--muted))] hover:bg-primary-100 dark:hover:bg-primary-900 transition-colors"
-                      >
-                        ▶ 试听
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setVoiceId(voice.voiceId)}
-                      className="flex-1 text-[10px] py-1 rounded-md bg-primary-50 dark:bg-primary-950 hover:bg-primary-100 dark:hover:bg-primary-900 text-primary-600 transition-colors"
-                    >
-                      使用
-                    </button>
-                  </div>
-                </div>
+                        }
+                      : undefined
+                  }
+                  onUse={() => setVoiceId(voice.voiceId)}
+                />
               ))}
             </div>
           )}

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   fetchWithTimeout,
-  getMiniMaxBaseUrl,
   isAbortError,
   readTextLimited,
   UPSTREAM_TIMEOUT_MS,
 } from '@/lib/server/security';
+import { miniMaxAuth } from '@/lib/server/minimax-auth';
 
 function hexToBuffer(hex: string): Buffer {
   const clean = hex.replace(/\s/g, '');
@@ -68,18 +68,9 @@ function detectFormat(buf: Buffer): { mime: string; fmt: string } {
  */
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = request.headers.get('x-api-key');
-
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API Key is required.' }, { status: 401 });
-    }
-
-    let baseUrl: string;
-    try {
-      baseUrl = getMiniMaxBaseUrl(request);
-    } catch {
-      return NextResponse.json({ error: 'Invalid x-base-url' }, { status: 400 });
-    }
+    const auth = miniMaxAuth(request);
+    if (!auth.ok) return auth.response;
+    const { apiKey, baseUrl } = auth;
 
     const body = await request.json();
     const requestedFormat: string = body.audio_setting?.format || 'mp3';

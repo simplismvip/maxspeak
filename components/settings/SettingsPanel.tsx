@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
+import { useServerConfig } from '@/lib/store/useServerConfig';
 import { MINIMAX_API_BASE, MINIMAX_API_BASE_CN, MODELS, AUDIO_FORMATS, SAMPLE_RATES, BITRATES, CHANNELS } from '@/lib/minimax/constants';
 import { LANGUAGE_OPTIONS } from '@/lib/voices/languages';
 import { cn } from '@/lib/utils';
@@ -13,6 +14,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const settings = useSettingsStore();
+  const hasServerKey = useServerConfig((s) => s.hasServerKey);
   const [showKey, setShowKey] = useState(false);
 
   return (
@@ -41,14 +43,19 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <h3 className="text-sm font-semibold text-[rgb(var(--foreground))] mb-3">API 配置</h3>
 
             <div className="space-y-4">
+              {hasServerKey && (
+                <p className="rounded-xl border border-brand/30 bg-brand/10 px-3 py-2 text-xs text-brand">
+                  服务端已配置 MiniMax Key，合成和复刻会默认使用它。下面这项只在需要临时覆盖时填写。
+                </p>
+              )}
               <div>
-                <label className="label">API Key</label>
+                <label className="label">API Key{hasServerKey ? '（可选覆盖）' : ''}</label>
                 <div className="relative">
                   <input
                     type={showKey ? 'text' : 'password'}
                     value={settings.apiKey}
                     onChange={(e) => settings.setApiKey(e.target.value)}
-                    placeholder="输入你的 MiniMax API Key..."
+                    placeholder={hasServerKey ? '留空则使用服务端 Key' : '输入你的 MiniMax API Key...'}
                     className="input-field pr-10 font-mono text-sm"
                   />
                   <button

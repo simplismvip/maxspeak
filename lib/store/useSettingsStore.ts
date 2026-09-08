@@ -50,7 +50,7 @@ export const useSettingsStore = create<SettingsState>()(
       defaultChannel: 1,
       defaultLanguage: 'auto',
 
-      theme: 'system',
+      theme: 'dark',
       autoPlay: true,
       autoStream: true,
 

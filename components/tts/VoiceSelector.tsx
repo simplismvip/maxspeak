@@ -34,7 +34,7 @@ export function VoiceSelector({ onPreviewVoice, previewLoading }: Props) {
       {selectedVoice && (
         <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-primary-50 dark:bg-primary-950 rounded-lg">
           <span className="flex-shrink-0">
-            {selectedVoice.gender === 'female' ? <UserRound size={14} className="text-rose-500" /> : selectedVoice.gender === 'male' ? <User size={14} className="text-sky-500" /> : <Bot size={14} className="text-violet-500" />}
+            {selectedVoice.gender === 'female' ? <UserRound size={14} className="text-rose-400" /> : selectedVoice.gender === 'male' ? <User size={14} className="text-sky-400" /> : <Bot size={14} className="text-brand" />}
           </span>
           <span className="text-sm font-medium text-[rgb(var(--foreground))] truncate">{selectedVoice.name}</span>
           <span className="text-xs text-[rgb(var(--muted-foreground))]">{selectedVoice.languageLabel}</span>

@@ -32,7 +32,7 @@ export function Header({ onToggleSidebar, sidebarOpen }: HeaderProps) {
           </button>
 
           <h1 className="text-sm font-semibold text-[rgb(var(--foreground))] tracking-tight">
-            MaxSpeak
+            Voxify
           </h1>
         </div>
 

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 
-const DEFAULT_MINIMAX_BASE_URL = 'https://api.minimax.io';
+export const DEFAULT_MINIMAX_BASE_URL = 'https://api.minimax.io';
 const ALLOWED_MINIMAX_BASE_URLS = new Set([
   'https://api.minimax.io',
   'https://api.minimaxi.com',
@@ -16,26 +16,67 @@ export const MAX_UPSTREAM_TEXT_BYTES = 2 * 1024 * 1024;
 export const MAX_UPSTREAM_ERROR_BYTES = 64 * 1024;
 export const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024;
 
-export function getMiniMaxBaseUrl(request: NextRequest): string {
-  const value = request.headers.get('x-base-url')?.trim() || DEFAULT_MINIMAX_BASE_URL;
+export function hasServerMiniMaxKey(): boolean {
+  return Boolean(process.env.MINIMAX_API_KEY?.trim());
+}
 
+export class MiniMaxConfigError extends Error {
+  status: number;
+
+  constructor(message: string, status = 401) {
+    super(message);
+    this.name = 'MiniMaxConfigError';
+    this.status = status;
+  }
+}
+
+function parseAllowedBaseUrl(value: string): string {
   let parsed: URL;
   try {
     parsed = new URL(value);
   } catch {
-    throw new Error('Invalid x-base-url');
+    throw new MiniMaxConfigError('Invalid x-base-url', 400);
   }
 
   if (parsed.pathname !== '/' || parsed.search || parsed.hash || parsed.username || parsed.password) {
-    throw new Error('Invalid x-base-url');
+    throw new MiniMaxConfigError('Invalid x-base-url', 400);
   }
 
   const origin = parsed.origin;
   if (!ALLOWED_MINIMAX_BASE_URLS.has(origin)) {
-    throw new Error('Invalid x-base-url');
+    throw new MiniMaxConfigError('Invalid x-base-url', 400);
   }
 
   return origin;
+}
+
+export function getMiniMaxBaseUrl(request: NextRequest): string {
+  const value =
+    request.headers.get('x-base-url')?.trim() ||
+    process.env.MINIMAX_BASE_URL?.trim() ||
+    DEFAULT_MINIMAX_BASE_URL;
+
+  return parseAllowedBaseUrl(value);
+}
+
+export function resolveMiniMaxAuth(request: NextRequest): { apiKey: string; baseUrl: string } {
+  const headerKey = request.headers.get('x-api-key')?.trim() || '';
+  const envKey = process.env.MINIMAX_API_KEY?.trim() || '';
+  const apiKey = headerKey || envKey;
+
+  if (!apiKey) {
+    throw new MiniMaxConfigError(
+      '未配置 MiniMax API Key。请在 .env 或 .env.local 设置 MINIMAX_API_KEY，或在设置里填写。'
+    );
+  }
+
+  const headerBase = request.headers.get('x-base-url')?.trim();
+  const envBase = process.env.MINIMAX_BASE_URL?.trim();
+  const raw = headerKey
+    ? headerBase || DEFAULT_MINIMAX_BASE_URL
+    : envBase || headerBase || DEFAULT_MINIMAX_BASE_URL;
+
+  return { apiKey, baseUrl: parseAllowedBaseUrl(raw) };
 }
 
 export function isAbortError(error: unknown): boolean {
