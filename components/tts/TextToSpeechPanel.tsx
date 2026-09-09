@@ -1,16 +1,11 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import { TextInput } from './TextInput';
 import { VoiceSelector } from './VoiceSelector';
-import { ModelSelector } from './ModelSelector';
 import { EmotionTags } from './EmotionTags';
 import { ParalinguisticTagInserter } from './ParalinguisticTagInserter';
-import { SpeedPitchControls } from './SpeedPitchControls';
-import { VoiceModifyControls } from './VoiceModifyControls';
-import { AudioSettings } from './AudioSettings';
-import { LanguageBoostSelect } from './LanguageBoostSelect';
-import { PronunciationEditor } from './PronunciationEditor';
 // ─── Static lookup tables (not recreated on every render) ───
 const LANG_MAP: Record<string, string> = {
   Chinese: 'Chinese', English: 'English', Japanese: 'Japanese', Korean: 'Korean',
@@ -48,15 +43,24 @@ import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { blobToDataUrl, useHistoryStore } from '@/lib/store/useHistoryStore';
 import { estimateCost } from '@/lib/utils';
+import {
+  audioOverLimitMessage,
+  estimateDurationSeconds,
+  formatEstimatedDuration,
+  isOverAudioLimit,
+} from '@/lib/tts/estimate-audio';
 import { formatToExtension, hexAudioToBlob } from '@/lib/audio/utils';
 import { stopCurrent } from '@/lib/audio/player';
 import { streamAndPlay } from '@/lib/audio/stream-decoder';
 import { PRICING, PARAM_RANGES } from '@/lib/minimax/constants';
-import { AudioLines, Radio, AlertCircle, CircleCheck, Volume2 } from 'lucide-react';
+import { AudioLines, Radio, AlertCircle, Volume2, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { minimaxHeaders } from '@/lib/minimax/request';
 import { useServerConfig } from '@/lib/store/useServerConfig';
 import { PRESET_VOICES } from '@/lib/voices/preset-voices';
+import { findVoiceName } from '@/lib/voices/custom-voices';
+import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
+import { AudioPlayer } from '@/components/player/AudioPlayer';
 
 export function TextToSpeechPanel() {
   const tts = useTTSStore();
@@ -76,7 +80,7 @@ export function TextToSpeechPanel() {
         userEmail: user.email,
         text: tts.text,
         voiceId: tts.voiceId,
-        voiceName: voice?.name || tts.voiceId,
+        voiceName: voice?.name || findVoiceName(tts.voiceId),
         model: tts.model,
         format,
         audioDataUrl,
@@ -88,12 +92,18 @@ export function TextToSpeechPanel() {
   }, [addHistory, tts.text, tts.voiceId, tts.model]);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needLogin, setNeedLogin] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
 
   const shouldStream = tts.stream || (settings.autoStream && tts.text.length > PARAM_RANGES.streamingTextThreshold);
-  const isTextOverLimit = tts.text.length > PARAM_RANGES.textMaxLength;
-  const textLimitError = `文本长度超过限制：当前 ${tts.text.length} 字符，最多 ${PARAM_RANGES.textMaxLength} 字符。请缩短文本后再合成。`;
+  const estimatedSeconds = estimateDurationSeconds(tts.text, tts.speed);
+  const overDuration = isOverAudioLimit(tts.text, tts.speed);
+  const overChars = tts.text.length > PARAM_RANGES.textMaxLength;
+  const isTextOverLimit = overDuration || overChars;
+  const textLimitError = overDuration
+    ? audioOverLimitMessage(estimatedSeconds)
+    : `文本长度超过限制：当前 ${tts.text.length} 字符，最多 ${PARAM_RANGES.textMaxLength} 字符。请缩短文本后再合成。`;
 
   // Preview voice from selector
   const handlePreviewVoice = useCallback(async (voiceId: string) => {
@@ -102,7 +112,7 @@ export function TextToSpeechPanel() {
     try {
       const voice = PRESET_VOICES.find(v => v.id === voiceId);
       const languageBoost = voice ? (LANG_MAP[voice.language] || 'auto') : 'auto';
-      const sampleText = voice?.sampleText || PREVIEW_TEXTS[voice?.language || ''] || 'Hello, voice preview.';
+      const sampleText = voice?.sampleText || PREVIEW_TEXTS[voice?.language || ''] || PREVIEW_TEXTS.Chinese;
       const res = await fetch('/api/tts/synthesize', {
         method: 'POST', headers: minimaxHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ model: 'speech-2.8-turbo', text: sampleText, voice_setting: { voice_id: voiceId }, audio_setting: { sample_rate: 24000, bitrate: 64000, format: 'mp3', channel: 1 }, language_boost: languageBoost, output_format: 'hex' }),
@@ -121,14 +131,22 @@ export function TextToSpeechPanel() {
 
   const handleSynthesize = useCallback(async () => {
     if (!tts.text.trim()) {
+      setNeedLogin(false);
       setError('请输入需要合成的文本');
       return;
     }
+    if (!useAuthStore.getState().user) {
+      setError(null);
+      setNeedLogin(true);
+      return;
+    }
     if (isTextOverLimit) {
+      setNeedLogin(false);
       setError(textLimitError);
       return;
     }
 
+    setNeedLogin(false);
     setError(null);
     setIsSynthesizing(true);
     player.setLoading(true);
@@ -279,15 +297,43 @@ export function TextToSpeechPanel() {
           把文案转成有情绪的声音
         </p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Text Input & Core Controls */}
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:items-stretch">
+        <div className="lg:col-span-2 flex h-full min-h-0 flex-col gap-4">
           <TextInput />
 
-          {/* Paralinguistic Tags */}
           <ParalinguisticTagInserter />
+          <EmotionTags />
 
-          {/* Synthesize Button */}
+          {needLogin && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+              <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-amber-500" />
+              <div className="flex-1">
+                <p>请先登录后再生成语音。未登录无法保存生成历史。</p>
+                <Link
+                  href={`/signin?next=${encodeURIComponent('/text-to-speech')}`}
+                  className="btn-primary mt-2 inline-flex h-8 px-4 text-xs"
+                >
+                  去登录
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm flex items-start gap-2">
+              <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="whitespace-pre-wrap">{error}</p>
+                <button
+                  onClick={() => setError(null)}
+                  className="text-xs underline mt-1 hover:no-underline"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleSynthesize}
@@ -313,10 +359,11 @@ export function TextToSpeechPanel() {
               )}
             </button>
 
-            {/* Cost Estimate */}
             {tts.text.trim() && !isSynthesizing && !isTextOverLimit && (
               <span className="text-xs text-[rgb(var(--muted-foreground))]">
-                预估费用: {estimateCost(tts.text, tts.model, PRICING)}
+                预估费用 {estimateCost(tts.text, tts.model, PRICING)}
+                <span className="mx-1.5 text-[rgb(var(--border))]">·</span>
+                预估时长 {formatEstimatedDuration(estimatedSeconds)}
               </span>
             )}
             {isTextOverLimit && !isSynthesizing && (
@@ -325,7 +372,6 @@ export function TextToSpeechPanel() {
               </span>
             )}
 
-            {/* Stream toggle */}
             <label className="flex items-center gap-1.5 text-xs text-[rgb(var(--muted-foreground))] cursor-pointer">
               <input
                 type="checkbox"
@@ -336,63 +382,31 @@ export function TextToSpeechPanel() {
               流式
             </label>
           </div>
-
-          {/* Error */}
-          {error && (
-            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm flex items-start gap-2">
-              <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="whitespace-pre-wrap">{error}</p>
-                <button
-                  onClick={() => setError(null)}
-                  className="text-xs underline mt-1 hover:no-underline"
-                >
-                  关闭
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Status tips */}
-          {player.audioUrl && !isSynthesizing && !player.isStreaming && (
-            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950 text-xs text-green-700 dark:text-green-300">
-              <CircleCheck size={14} className="text-emerald-500 inline mr-1" />音频已就绪，点击下方播放按钮试听或下载
-            </div>
-          )}
         </div>
 
-        {/* Right: Voice & Audio Settings */}
-        <div className="space-y-4">
-          <ModelSelector />
+        <div className="flex flex-col gap-4">
           <VoiceSelector onPreviewVoice={handlePreviewVoice} previewLoading={previewLoading} />
-          <EmotionTags />
-          <SpeedPitchControls />
 
-          {/* Advanced Toggle */}
           <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-sm text-[rgb(var(--muted-foreground))] hover:text-[rgb(var(--foreground))] transition-colors w-full"
+            type="button"
+            onClick={() => setShowAdvanced(true)}
+            className="card flex w-full items-center justify-between px-4 py-3.5 text-left transition hover:border-brand/40"
           >
-            <svg
-              className={cn('w-4 h-4 transition-transform', showAdvanced && 'rotate-90')}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            高级设置
+            <div>
+              <p className="text-sm font-semibold text-[rgb(var(--foreground))]">高级设置</p>
+              <p className="mt-0.5 text-[11px] text-[rgb(var(--muted-foreground))]">
+                合成模型、语速音高与更多参数
+              </p>
+            </div>
+            <SlidersHorizontal size={18} className="text-[rgb(var(--muted-foreground))]" />
           </button>
 
-          {showAdvanced && (
-            <div className="space-y-4 animate-slide-up">
-              <VoiceModifyControls />
-              <AudioSettings />
-              <LanguageBoostSelect />
-              <PronunciationEditor />
-            </div>
-          )}
+          {showAdvanced && <AdvancedSettingsPanel onClose={() => setShowAdvanced(false)} />}
         </div>
+      </div>
+
+      <div className="mt-6">
+        <AudioPlayer variant="inline" />
       </div>
     </div>
   );

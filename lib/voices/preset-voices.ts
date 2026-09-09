@@ -304,6 +304,15 @@ export const VOICE_LANGUAGES = Array.from(
   new Map(PRESET_VOICES.map(v => [v.language, { code: v.language, label: v.languageLabel }])).values()
 ).sort((a, b) => a.label.localeCompare(b.label, 'zh'));
 
+/** Keep the selected voice at the top of the visible list. */
+export function pinVoiceFirst<T extends { id: string }>(voices: T[], voiceId: string): T[] {
+  const index = voices.findIndex((voice) => voice.id === voiceId);
+  if (index <= 0) return voices;
+  const next = voices.slice();
+  const [item] = next.splice(index, 1);
+  return [item, ...next];
+}
+
 /** Filter voices by language and search query */
 export function filterVoices(
   voices: PresetVoice[],

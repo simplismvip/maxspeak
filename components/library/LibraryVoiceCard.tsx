@@ -96,9 +96,7 @@ export function LibraryVoiceCard({
         onClick={onUse}
         className={cn(
           'mt-3 text-xs font-medium transition',
-          selected
-            ? 'inline-flex items-center gap-1 text-brand'
-            : 'text-brand opacity-0 group-hover:opacity-100'
+          selected ? 'inline-flex items-center gap-1 text-brand' : 'text-brand hover:underline'
         )}
       >
         {selected ? (

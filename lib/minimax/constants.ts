@@ -79,6 +79,14 @@ export const PARAM_RANGES = {
   streamingTextThreshold: 3000,
 };
 
+/** Single-request audio length cap. Change `maxAudioSeconds` when the 5-minute limit is adjusted. */
+export const TTS_AUDIO_LIMITS = {
+  maxAudioSeconds: 300,
+  cjkCharsPerSecond: 4,
+  latinCharsPerSecond: 13,
+  tagPauseSeconds: 0.55,
+} as const;
+
 // Pricing constants (CNY per 10K characters)
 export const PRICING: Record<string, number> = {
   'speech-2.8-hd': 3.5,

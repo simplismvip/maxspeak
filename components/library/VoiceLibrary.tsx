@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { PRESET_VOICES, VOICE_LANGUAGES, filterVoices, groupVoicesByLanguage } from '@/lib/voices/preset-voices';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useServerConfig } from '@/lib/store/useServerConfig';
@@ -80,12 +81,12 @@ function FitSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="input-field relative inline-flex w-auto shrink-0 cursor-pointer items-center whitespace-nowrap py-2.5 pl-3.5 pr-10 text-left text-sm"
+        className="input-field relative inline-flex w-auto shrink-0 cursor-pointer items-center whitespace-nowrap py-2.5 pl-3.5 pr-[2.625rem] text-left text-sm"
       >
         {label}
         <ChevronDown
           size={14}
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[rgb(var(--muted-foreground))]"
+          className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[rgb(var(--muted-foreground))]"
         />
       </button>
       {open &&
@@ -124,9 +125,10 @@ function FitSelect({
 }
 
 export function VoiceLibrary() {
+  const router = useRouter();
   const settings = useSettingsStore();
   const hasServerKey = useServerConfig((s) => s.hasServerKey);
-  const setVoiceId = useTTSStore((s) => s.setVoiceId);
+  const selectVoiceFromLibrary = useTTSStore((s) => s.selectVoiceFromLibrary);
   const selectedVoiceId = useTTSStore((s) => s.voiceId);
   const user = useAuthStore((s) => s.user);
   const [search, setSearch] = useState('');
@@ -214,6 +216,16 @@ export function VoiceLibrary() {
       setIsSyncing(false);
       setTimeout(() => setSyncMessage(null), 5000);
     }
+  };
+
+  const handleUseVoice = (opts: {
+    voiceId: string;
+    source: VoiceSource;
+    language?: string;
+    gender?: string;
+  }) => {
+    selectVoiceFromLibrary(opts);
+    router.push('/text-to-speech');
   };
 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -454,7 +466,14 @@ export function VoiceLibrary() {
                     selected={selectedVoiceId === voice.id}
                     previewLoading={previewLoading === voice.id}
                     onPreview={() => void handlePreviewVoice(voice.id)}
-                    onUse={() => setVoiceId(voice.id)}
+                    onUse={() =>
+                      handleUseVoice({
+                        voiceId: voice.id,
+                        source: 'system',
+                        language: voice.language,
+                        gender: voice.gender,
+                      })
+                    }
                   />
                 ))}
               </div>
@@ -507,7 +526,7 @@ export function VoiceLibrary() {
                         }
                       : undefined
                   }
-                  onUse={() => setVoiceId(voice.voiceId)}
+                  onUse={() => handleUseVoice({ voiceId: voice.voiceId, source: 'cloned' })}
                 />
               ))}
             </div>
@@ -561,7 +580,7 @@ export function VoiceLibrary() {
                         }
                       : undefined
                   }
-                  onUse={() => setVoiceId(voice.voiceId)}
+                  onUse={() => handleUseVoice({ voiceId: voice.voiceId, source: 'designed' })}
                 />
               ))}
             </div>

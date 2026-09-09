@@ -9,6 +9,8 @@ import { useTTSStore } from '@/lib/store/useTTSStore';
 import { LoginRequiredState } from '@/components/auth/LoginRequiredState';
 import { formatDuration } from '@/lib/utils';
 import { formatToExtension as audioExt } from '@/lib/audio/utils';
+import { PRESET_VOICES } from '@/lib/voices/preset-voices';
+import { resolveVoiceSource } from '@/lib/voices/custom-voices';
 
 export function HistoryPanel() {
   const router = useRouter();
@@ -18,7 +20,7 @@ export function HistoryPanel() {
   const setAudioUrl = usePlayerStore((s) => s.setAudioUrl);
   const setLastGeneratedAudio = usePlayerStore((s) => s.setLastGeneratedAudio);
   const setText = useTTSStore((s) => s.setText);
-  const setVoiceId = useTTSStore((s) => s.setVoiceId);
+  const selectVoiceFromLibrary = useTTSStore((s) => s.selectVoiceFromLibrary);
 
   const records = user ? items.filter((item) => item.userEmail === user.email) : [];
 
@@ -36,7 +38,20 @@ export function HistoryPanel() {
 
   const reuse = (record: (typeof records)[number]) => {
     setText(record.text);
-    setVoiceId(record.voiceId);
+    const preset = PRESET_VOICES.find((voice) => voice.id === record.voiceId);
+    if (preset) {
+      selectVoiceFromLibrary({
+        voiceId: preset.id,
+        source: 'system',
+        language: preset.language,
+        gender: preset.gender,
+      });
+    } else {
+      selectVoiceFromLibrary({
+        voiceId: record.voiceId,
+        source: resolveVoiceSource(record.voiceId),
+      });
+    }
     play(record);
     router.push('/text-to-speech');
   };

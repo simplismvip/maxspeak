@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { AlertCircle, History, Mic, Settings, Sparkles, Volume2, WandSparkles } from 'lucide-react';
+import { AlertCircle, History, Mic, Sparkles, Volume2, WandSparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { STUDIO_WRAP } from '@/lib/site';
-import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useServerConfig } from '@/lib/store/useServerConfig';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
@@ -53,7 +52,6 @@ export function StudioNav() {
 }
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
-  const user = useAuthStore((s) => s.user);
   const apiKey = useSettingsStore((s) => s.apiKey);
   const hasServerKey = useServerConfig((s) => s.hasServerKey);
   const refreshConfig = useServerConfig((s) => s.refresh);
@@ -66,25 +64,9 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={STUDIO_WRAP}>
-      <div className="mb-3 flex items-center justify-between text-sm">
-        <div>
-          <p className="font-semibold">Voxify Studio</p>
-          <p className="text-xs text-[rgb(var(--muted-foreground))]">克隆、合成、管理音色</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-full bg-[rgb(var(--muted))] px-2.5 py-1">0 积分</span>
-          <span className="rounded-full bg-brand/15 px-2.5 py-1 font-medium text-brand">
-            {user ? '已登录工作区' : '免费工作区'}
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowSettings(true)}
-            className="rounded-full bg-[rgb(var(--muted))] p-1.5 hover:text-brand"
-            title="设置"
-          >
-            <Settings size={14} />
-          </button>
-        </div>
+      <div className="mb-3">
+        <p className="font-semibold">Voxify Studio</p>
+        <p className="text-xs text-[rgb(var(--muted-foreground))]">克隆、合成、管理音色</p>
       </div>
       {!ready && (
         <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200">
