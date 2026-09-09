@@ -8,29 +8,37 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
     "cf:build": "npx @cloudflare/next-on-pages",
     "cf:deploy": "npx @cloudflare/next-on-pages && npx wrangler pages deploy .vercel/output/static"
   },
   "dependencies": {
-    "next": "^14.2.29",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "zustand": "^5.0.3",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "framer-motion": "^11.18.2",
     "lucide-react": "^0.468.0",
-    "clsx": "^2.1.1",
+    "next": "^14.2.29",
+    "next-auth": "^4.24.11",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tailwind-merge": "^2.6.0",
-    "class-variance-authority": "^0.7.1"
+    "tencentcloud-sdk-nodejs-ses": "^4.1.271",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
-    "typescript": "^5.7.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.10.10",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
-    "tailwindcss": "^3.4.17",
-    "postcss": "^8.5.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^14.2.29"
+    "eslint-config-next": "^14.2.29",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.11"
   }
 }

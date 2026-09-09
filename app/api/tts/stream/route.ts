@@ -7,6 +7,7 @@ import {
   STREAM_TIMEOUT_MS,
 } from '@/lib/server/security';
 import { miniMaxAuth } from '@/lib/server/minimax-auth';
+import { rejectLockedDesignedVoice, voiceIdFromTtsBody } from '@/lib/server/designed-voice-guard';
 
 /**
  * POST /api/tts/stream
@@ -19,6 +20,8 @@ export async function POST(request: NextRequest) {
     const { apiKey, baseUrl } = auth;
 
     const body = await request.json();
+    const locked = await rejectLockedDesignedVoice(voiceIdFromTtsBody(body));
+    if (locked) return locked;
     const audioFormat = body.audio_setting?.format || 'mp3';
     const sampleRate = body.audio_setting?.sample_rate || 32000;
 

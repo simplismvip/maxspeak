@@ -13,6 +13,7 @@ import { minimaxHeaders } from '@/lib/minimax/request';
 import { ChevronDown, Search, Library } from 'lucide-react';
 import { LibraryVoiceCard } from '@/components/library/LibraryVoiceCard';
 import { LoginRequiredState } from '@/components/auth/LoginRequiredState';
+import { isDesignedVoicePaid, useDesignedVoiceStore } from '@/lib/store/useDesignedVoiceStore';
 
 type VoiceSource = 'system' | 'cloned' | 'designed';
 
@@ -131,6 +132,8 @@ export function VoiceLibrary() {
   const selectVoiceFromLibrary = useTTSStore((s) => s.selectVoiceFromLibrary);
   const selectedVoiceId = useTTSStore((s) => s.voiceId);
   const user = useAuthStore((s) => s.user);
+  const unlocked = useDesignedVoiceStore((s) => s.unlocked);
+  const openUnlock = useDesignedVoiceStore((s) => s.openUnlock);
   const [search, setSearch] = useState('');
   const [language, setLanguage] = useState<string>('');
   const [gender, setGender] = useState<string>('');
@@ -580,7 +583,14 @@ export function VoiceLibrary() {
                         }
                       : undefined
                   }
-                  onUse={() => handleUseVoice({ voiceId: voice.voiceId, source: 'designed' })}
+                  needsUnlock={!isDesignedVoicePaid(voice.voiceId, unlocked)}
+                  onUse={() => {
+                    if (!isDesignedVoicePaid(voice.voiceId, unlocked)) {
+                      openUnlock({ voiceId: voice.voiceId, prompt: voice.prompt });
+                      return;
+                    }
+                    handleUseVoice({ voiceId: voice.voiceId, source: 'designed' });
+                  }}
                 />
               ))}
             </div>

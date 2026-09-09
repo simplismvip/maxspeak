@@ -10,9 +10,10 @@ interface VoiceCardProps {
   onSelect: () => void;
   onPreview?: (voiceId: string) => void;
   previewLoading?: boolean;
+  needsUnlock?: boolean;
 }
 
-export function VoiceCard({ voice, isSelected, onSelect, onPreview, previewLoading }: VoiceCardProps) {
+export function VoiceCard({ voice, isSelected, onSelect, onPreview, previewLoading, needsUnlock }: VoiceCardProps) {
   return (
     <div
       onClick={onSelect}
@@ -36,6 +37,11 @@ export function VoiceCard({ voice, isSelected, onSelect, onPreview, previewLoadi
             <span className="font-medium text-[rgb(var(--foreground))] truncate text-xs">
               {voice.name}
             </span>
+            {needsUnlock ? (
+              <span className="flex-shrink-0 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-200">
+                付费
+              </span>
+            ) : null}
             {onPreview && (
               <button
                 onClick={(e) => { e.stopPropagation(); onPreview(voice.id); }}

@@ -9,6 +9,9 @@ import { STUDIO_WRAP } from '@/lib/site';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useServerConfig } from '@/lib/store/useServerConfig';
 import { SettingsPanel } from '@/components/settings/SettingsPanel';
+import { UnlockDesignedVoiceDialog } from '@/components/billing/UnlockDesignedVoiceDialog';
+import { useAuthStore } from '@/lib/store/useAuthStore';
+import { useDesignedVoiceStore } from '@/lib/store/useDesignedVoiceStore';
 
 const ITEMS = [
   { href: '/text-to-speech', label: '生成语音', desc: '把文案转成有情绪的声音', icon: Volume2 },
@@ -55,12 +58,18 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   const apiKey = useSettingsStore((s) => s.apiKey);
   const hasServerKey = useServerConfig((s) => s.hasServerKey);
   const refreshConfig = useServerConfig((s) => s.refresh);
+  const user = useAuthStore((s) => s.user);
+  const refreshDesigned = useDesignedVoiceStore((s) => s.refresh);
   const [showSettings, setShowSettings] = useState(false);
   const ready = Boolean(apiKey || hasServerKey);
 
   useEffect(() => {
     void refreshConfig();
   }, [refreshConfig]);
+
+  useEffect(() => {
+    if (user) void refreshDesigned();
+  }, [user, refreshDesigned]);
 
   return (
     <div className={STUDIO_WRAP}>
@@ -84,6 +93,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         <div className="min-w-0 flex-1 overflow-y-auto scrollbar-thin p-4 md:p-6">{children}</div>
       </div>
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      <UnlockDesignedVoiceDialog />
     </div>
   );
 }

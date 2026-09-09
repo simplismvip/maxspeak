@@ -13,6 +13,7 @@ interface LibraryVoiceCardProps {
   selected?: boolean;
   canPreview?: boolean;
   previewLoading?: boolean;
+  needsUnlock?: boolean;
   onPreview?: () => void;
   onUse: () => void;
 }
@@ -28,6 +29,7 @@ export function LibraryVoiceCard({
   previewLoading,
   onPreview,
   onUse,
+  needsUnlock,
 }: LibraryVoiceCardProps) {
   return (
     <div
@@ -38,6 +40,11 @@ export function LibraryVoiceCard({
           : 'border-[rgb(var(--border))] bg-[rgb(var(--card))]/40 hover:border-brand/30 hover:bg-brand/[0.03]'
       )}
     >
+      {needsUnlock ? (
+        <span className="absolute right-2 top-2 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-200">
+          付费
+        </span>
+      ) : null}
       <button
         type="button"
         aria-label={`试听 ${name}`}
@@ -104,6 +111,8 @@ export function LibraryVoiceCard({
             <Check size={12} />
             使用中
           </>
+        ) : needsUnlock ? (
+          '去充值解锁 →'
         ) : (
           '使用此音色 →'
         )}

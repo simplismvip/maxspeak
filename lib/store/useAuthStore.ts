@@ -1,30 +1,20 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export interface AuthUser {
   email: string;
   name: string;
+  image?: string;
+  provider?: string;
 }
 
 interface AuthState {
   user: AuthUser | null;
-  signIn: (email: string) => void;
+  setFromSession: (user: AuthUser | null) => void;
   signOut: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      signIn: (email) =>
-        set({
-          user: {
-            email,
-            name: email.split('@')[0] || '用户',
-          },
-        }),
-      signOut: () => set({ user: null }),
-    }),
-    { name: 'maxspeak-auth' }
-  )
-);
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  setFromSession: (user) => set({ user }),
+  signOut: () => set({ user: null }),
+}));

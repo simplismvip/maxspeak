@@ -15,6 +15,7 @@ import { VoiceCard } from './VoiceCard';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PresetVoice, ClonedVoice, DesignedVoice } from '@/lib/minimax/types';
+import { isDesignedVoicePaid, useDesignedVoiceStore } from '@/lib/store/useDesignedVoiceStore';
 
 interface Props {
   onPreviewVoice?: (voiceId: string) => void;
@@ -61,6 +62,8 @@ export function VoiceSelector({ onPreviewVoice, previewLoading }: Props) {
   const gender = useTTSStore((s) => s.voiceGender);
   const setGender = useTTSStore((s) => s.setVoiceGender);
   const user = useAuthStore((s) => s.user);
+  const unlocked = useDesignedVoiceStore((s) => s.unlocked);
+  const openUnlock = useDesignedVoiceStore((s) => s.openUnlock);
 
   const [search, setSearch] = useState('');
   const [clonedVoices, setClonedVoices] = useState<ClonedVoice[]>([]);
@@ -193,16 +196,27 @@ export function VoiceSelector({ onPreviewVoice, previewLoading }: Props) {
                   : '未找到匹配的音色'}
             </p>
           )}
-          {visibleVoices.slice(0, 100).map((voice) => (
+          {visibleVoices.slice(0, 100).map((voice) => {
+            const designed = designedVoices.find((item) => item.voiceId === voice.id);
+            const needsUnlock = voiceSource === 'designed' && !isDesignedVoicePaid(voice.id, unlocked);
+            return (
             <VoiceCard
               key={voice.id}
               voice={voice}
               isSelected={voice.id === voiceId}
-              onSelect={() => setVoiceId(voice.id)}
+              needsUnlock={needsUnlock}
+              onSelect={() => {
+                if (needsUnlock) {
+                  openUnlock({ voiceId: voice.id, prompt: designed?.prompt });
+                  return;
+                }
+                setVoiceId(voice.id);
+              }}
               onPreview={handlePreview}
               previewLoading={previewLoading === voice.id}
             />
-          ))}
+            );
+          })}
           {visibleVoices.length > 100 && (
             <p className="py-2 text-center text-xs text-[rgb(var(--muted-foreground))]">
               显示前 100 个结果，请使用搜索或过滤缩小范围

@@ -41,6 +41,7 @@ import { useTTSStore } from '@/lib/store/useTTSStore';
 import { usePlayerStore } from '@/lib/store/usePlayerStore';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useAuthStore } from '@/lib/store/useAuthStore';
+import { getSession } from 'next-auth/react';
 import { blobToDataUrl, useHistoryStore } from '@/lib/store/useHistoryStore';
 import { estimateCost } from '@/lib/utils';
 import {
@@ -58,9 +59,10 @@ import { cn } from '@/lib/utils';
 import { minimaxHeaders } from '@/lib/minimax/request';
 import { useServerConfig } from '@/lib/store/useServerConfig';
 import { PRESET_VOICES } from '@/lib/voices/preset-voices';
-import { findVoiceName } from '@/lib/voices/custom-voices';
+import { findVoiceName, loadDesignedVoices } from '@/lib/voices/custom-voices';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { AudioPlayer } from '@/components/player/AudioPlayer';
+import { isDesignedVoicePaid, useDesignedVoiceStore } from '@/lib/store/useDesignedVoiceStore';
 
 export function TextToSpeechPanel() {
   const tts = useTTSStore();
@@ -136,13 +138,34 @@ export function TextToSpeechPanel() {
       return;
     }
     if (!useAuthStore.getState().user) {
-      setError(null);
-      setNeedLogin(true);
-      return;
+      const session = await getSession();
+      const email = session?.user?.email?.trim();
+      if (!email) {
+        setError(null);
+        setNeedLogin(true);
+        return;
+      }
+      useAuthStore.getState().setFromSession({
+        email,
+        name: session.user?.name?.trim() || email.split('@')[0] || '用户',
+        image: session.user?.image || undefined,
+        provider: session.user?.provider,
+      });
     }
     if (isTextOverLimit) {
       setNeedLogin(false);
       setError(textLimitError);
+      return;
+    }
+
+    const designed = loadDesignedVoices().find((voice) => voice.voiceId === tts.voiceId);
+    if (designed && !isDesignedVoicePaid(tts.voiceId, useDesignedVoiceStore.getState().unlocked)) {
+      setNeedLogin(false);
+      setError(null);
+      useDesignedVoiceStore.getState().openUnlock({
+        voiceId: designed.voiceId,
+        prompt: designed.prompt,
+      });
       return;
     }
 
@@ -199,7 +222,17 @@ export function TextToSpeechPanel() {
 
         if (!response.ok) {
           const err = await response.json().catch(() => ({ error: 'Stream request failed' }));
-          throw new Error(err.error || `Stream error: ${response.status}`);
+          if (err.error === 'voice_locked') {
+            const designed = loadDesignedVoices().find((voice) => voice.voiceId === tts.voiceId);
+            useDesignedVoiceStore.getState().openUnlock({
+              voiceId: tts.voiceId,
+              prompt: designed?.prompt,
+            });
+            player.setStreaming(false);
+            player.setLoading(false);
+            return;
+          }
+          throw new Error(err.message || err.error || `Stream error: ${response.status}`);
         }
 
         // Check if response is actually SSE or JSON error
@@ -245,7 +278,21 @@ export function TextToSpeechPanel() {
         if (!res.ok) {
           const errText = await res.text();
           let errMsg = `API error: ${res.status}`;
-          try { errMsg = JSON.parse(errText).error || errMsg; } catch {}
+          let errCode = '';
+          try {
+            const parsed = JSON.parse(errText);
+            errMsg = parsed.message || parsed.error || errMsg;
+            errCode = parsed.error || '';
+          } catch {}
+          if (errCode === 'voice_locked') {
+            const designed = loadDesignedVoices().find((voice) => voice.voiceId === tts.voiceId);
+            useDesignedVoiceStore.getState().openUnlock({
+              voiceId: tts.voiceId,
+              prompt: designed?.prompt,
+            });
+            player.setLoading(false);
+            return;
+          }
           throw new Error(errMsg);
         }
 

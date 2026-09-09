@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/layout/ThemeProvider';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 import { SITE } from '@/lib/site';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
@@ -29,7 +30,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="dark" suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen bg-[rgb(var(--background))] antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

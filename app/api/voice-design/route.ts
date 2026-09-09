@@ -3,11 +3,16 @@ import {
   fetchWithTimeout,
   isAbortError,
   MAX_UPSTREAM_ERROR_BYTES,
+  MAX_VOICE_DESIGN_BYTES,
   readJsonLimited,
   readTextLimited,
-  UPSTREAM_TIMEOUT_MS,
+  VOICE_DESIGN_TIMEOUT_MS,
 } from '@/lib/server/security';
 import { miniMaxAuth } from '@/lib/server/minimax-auth';
+import { getSessionUser } from '@/lib/auth/session-user';
+import { saveDesignedVoice } from '@/lib/billing/designed-voices';
+
+export const maxDuration = 180;
 
 /**
  * POST /api/voice-design
@@ -42,20 +47,30 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
-    }, UPSTREAM_TIMEOUT_MS);
+    }, VOICE_DESIGN_TIMEOUT_MS);
 
     if (!response.ok) {
       const err = await readTextLimited(response, MAX_UPSTREAM_ERROR_BYTES);
       return NextResponse.json({ error: `Error ${response.status}: ${err}` }, { status: response.status });
     }
 
-    const data: any = await readJsonLimited(response);
+    const data: any = await readJsonLimited(response, MAX_VOICE_DESIGN_BYTES);
 
     if (data.base_resp?.status_code !== 0) {
       return NextResponse.json(
         { error: data.base_resp?.status_msg || 'Voice design failed' },
         { status: 400 }
       );
+    }
+
+    const user = await getSessionUser();
+    const designedId = typeof data.voice_id === 'string' ? data.voice_id : '';
+    if (user && designedId) {
+      saveDesignedVoice({
+        userId: user.id,
+        voiceId: designedId,
+        prompt: String(body.prompt || ''),
+      });
     }
 
     return NextResponse.json(data);

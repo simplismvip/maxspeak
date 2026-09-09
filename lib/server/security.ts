@@ -11,8 +11,10 @@ const DOWNLOAD_HOSTS = new Set(['minimax.io', 'minimaxi.com']);
 
 export const UPSTREAM_TIMEOUT_MS = 30_000;
 export const STREAM_TIMEOUT_MS = 120_000;
+export const VOICE_DESIGN_TIMEOUT_MS = 180_000;
 export const DOWNLOAD_TIMEOUT_MS = 30_000;
 export const MAX_UPSTREAM_TEXT_BYTES = 2 * 1024 * 1024;
+export const MAX_VOICE_DESIGN_BYTES = 8 * 1024 * 1024;
 export const MAX_UPSTREAM_ERROR_BYTES = 64 * 1024;
 export const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024;
 

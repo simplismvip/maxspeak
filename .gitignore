@@ -44,3 +44,7 @@ next-env.d.ts
 
 # local settings
 .claude/
+
+# local user database
+/data/*.sqlite
+/data/*.sqlite-*

@@ -6,6 +6,7 @@ import {
   UPSTREAM_TIMEOUT_MS,
 } from '@/lib/server/security';
 import { miniMaxAuth } from '@/lib/server/minimax-auth';
+import { rejectLockedDesignedVoice, voiceIdFromTtsBody } from '@/lib/server/designed-voice-guard';
 
 function hexToBuffer(hex: string): Buffer {
   const clean = hex.replace(/\s/g, '');
@@ -73,6 +74,8 @@ export async function POST(request: NextRequest) {
     const { apiKey, baseUrl } = auth;
 
     const body = await request.json();
+    const locked = await rejectLockedDesignedVoice(voiceIdFromTtsBody(body));
+    if (locked) return locked;
     const requestedFormat: string = body.audio_setting?.format || 'mp3';
     const sampleRate: number = body.audio_setting?.sample_rate || 32000;
     const channels: number = body.audio_setting?.channel || 1;

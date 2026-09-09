@@ -1,10 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, WandSparkles } from 'lucide-react';
+import Link from 'next/link';
+import { CircleDollarSign, Clock, Sparkles, WandSparkles } from 'lucide-react';
 import { minimaxHeaders } from '@/lib/minimax/request';
 import type { DesignedVoice } from '@/lib/minimax/types';
 import { HelpTip } from '@/components/ui/HelpTip';
+import { isDesignedVoicePaid, useDesignedVoiceStore } from '@/lib/store/useDesignedVoiceStore';
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 function hexToAudioUrl(hex: string): string {
   const bytes = new Uint8Array(hex.length / 2);
@@ -35,6 +39,9 @@ export function VoiceDesignPanel() {
   });
 
   const [isGenerating, setIsGenerating] = useState<'prompt' | 'preview' | null>(null);
+  const unlocked = useDesignedVoiceStore((s) => s.unlocked);
+  const openUnlock = useDesignedVoiceStore((s) => s.openUnlock);
+  const refreshDesigned = useDesignedVoiceStore((s) => s.refresh);
 
   const saveDesignedVoices = (voices: DesignedVoice[]) => {
     setDesignedVoices(voices);
@@ -85,6 +92,7 @@ export function VoiceDesignPanel() {
         trialAudio: data.trial_audio,
       };
       saveDesignedVoices([newVoice, ...designedVoices]);
+      void refreshDesigned();
 
       // Auto-play trial audio
       if (data.trial_audio) {
@@ -143,6 +151,31 @@ export function VoiceDesignPanel() {
         <p className="ml-[42px] mt-1.5 text-sm text-[rgb(var(--muted-foreground))]">
           通过文字描述来创造全新的音色，无需音频样本。
         </p>
+      </div>
+
+      <div className="mb-6 space-y-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-4 text-sm text-amber-950 dark:text-amber-100">
+        <div>
+          <p className="flex items-center gap-1.5 font-semibold">
+            <CircleDollarSign size={15} className="shrink-0" />
+            收费说明
+          </p>
+          <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed">
+            <li>设计音色是付费项目：解锁一条设计音色需单独付费，买下后可反复使用。</li>
+            <li>
+              本页可以先设计和试听，不收解锁费。第一次在「<Link href="/text-to-speech" className="underline underline-offset-2 hover:text-brand">生成语音</Link>」里用这条音色时，才按一条音色扣费。本页试听不算解锁。
+            </li>
+            <li>解锁之后再用，只按普通语音合成计费，不再收解锁费。</li>
+          </ul>
+        </div>
+        <div>
+          <p className="flex items-center gap-1.5 font-semibold">
+            <Clock size={15} className="shrink-0" />
+            请在 7 天内用一次
+          </p>
+          <p className="mt-2 text-[13px] leading-relaxed">
+            新设计的音色会先暂存 7 天。请在 7 天内到「生成语音」用一次，才会留下来。本页试听不能激活保留，逾期未用会被清除。
+          </p>
+        </div>
       </div>
 
       {/* Error */}
@@ -230,6 +263,10 @@ export function VoiceDesignPanel() {
             />
           </div>
 
+          <p className="text-xs leading-relaxed text-[rgb(var(--muted-foreground))]">
+            本页试听不收解锁费。生成后请在 7 天内到「生成语音」使用一次才会保留；第一次合成时按一条音色扣费。
+          </p>
+
           <button
             onClick={handleDesign}
             disabled={!prompt.trim() || !previewText.trim() || isDesigning}
@@ -278,8 +315,9 @@ export function VoiceDesignPanel() {
             </div>
           )}
 
-          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950 text-xs text-green-700 dark:text-green-300">
-            ✅ 音色已保存。在语音合成页面可通过音色 ID 使用此音色。请在 7 天内使用以保持有效。
+          <div className="space-y-1.5 rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <p>这条音色先暂存 7 天。请到「生成语音」用一次才会留下；本页试听不算。</p>
+            <p>第一次用于合成时按一条音色扣费，之后再用只按普通语音合成计费。</p>
           </div>
 
           <button onClick={handleReset} className="btn-primary w-full">
@@ -298,11 +336,27 @@ export function VoiceDesignPanel() {
             {designedVoices.map((voice) => (
               <div key={voice.voiceId} className="card p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-medium text-[rgb(var(--foreground))] font-mono">{voice.voiceId}</div>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="text-sm font-medium text-[rgb(var(--foreground))] font-mono truncate">{voice.voiceId}</div>
+                    {!isDesignedVoicePaid(voice.voiceId, unlocked) ? (
+                      <button
+                        type="button"
+                        onClick={() => openUnlock({ voiceId: voice.voiceId, prompt: voice.prompt })}
+                        className="flex-shrink-0 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-200"
+                      >
+                        付费
+                      </button>
+                    ) : null}
+                  </div>
                   <span className="text-xs text-[rgb(var(--muted-foreground))]">
                     {new Date(voice.createdAt).toLocaleString('zh-CN')}
                   </span>
                 </div>
+                <p className="mb-2 text-xs text-amber-700 dark:text-amber-300">
+                  {Date.now() - voice.createdAt > SEVEN_DAYS_MS
+                    ? '已超过 7 天，若未在生成语音中用过，可能已被平台删除。'
+                    : '临时音色：7 天内请到「生成语音」使用一次才会留下，本页试听不算。'}
+                </p>
                 <p className="text-xs text-[rgb(var(--muted-foreground))] mb-2 line-clamp-2">
                   描述: {voice.prompt}
                 </p>
